@@ -171,6 +171,68 @@ body {
   border-bottom: 1px solid rgba(51, 65, 85, 0.5);
 }
 
+/* Phase 9: Document Type Section */
+.doc-type-section {
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+.doc-type-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--text-muted);
+  border: 1px solid var(--card-border);
+}
+
+.doc-type-badge.selected {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+}
+
+.doc-type-badge.waiting {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.doc-type-card {
+  background: #0f172a;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.doc-type-detected-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.doc-type-detected-label {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.doc-type-detected-value {
+  font-size: 0.78rem;
+  color: #60a5fa;
+  font-weight: 700;
+}
+
+.doc-type-helper {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -645,6 +707,107 @@ body {
   color: #fbbf24;
 }
 
+.verif-overall-box.waiting_for_type,
+.verif-overall-box.waiting {
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #cbd5e1;
+}
+
+.verif-overall-box.schema_unavailable {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+
+.verification-status-badge.waiting_for_type,
+.verification-status-badge.waiting {
+  background: rgba(148, 163, 184, 0.15);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #cbd5e1;
+}
+
+.verification-status-badge.schema_unavailable {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+
+/* Phase 9: Document Type Selection Styles */
+.doc-type-section {
+  margin-bottom: 12px;
+}
+
+.doc-type-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.doc-type-badge.selected {
+  background: rgba(59, 130, 246, 0.18);
+  color: #93c5fd;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+}
+
+.doc-type-card {
+  background: #0f172a;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.doc-type-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.select-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.popup-select {
+  width: 100%;
+  appearance: none;
+  background: #1e293b url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E") no-repeat right 10px center/14px 14px;
+  border: 1px solid rgba(51, 65, 85, 0.8);
+  border-radius: 6px;
+  color: #f8fafc;
+  font-family: var(--font-family);
+  font-size: 0.82rem;
+  padding: 7px 30px 7px 10px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+}
+
+.popup-select:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+}
+
+.popup-select option {
+  background: #1e293b;
+  color: #f8fafc;
+}
+
+.doc-type-helper {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-top: 5px;
+  line-height: 1.3;
+}
+
 .verif-overall-title {
   font-size: 0.7rem;
   letter-spacing: 0.5px;
@@ -925,6 +1088,114 @@ body {
   font-family: monospace;
 }
 
+/* Phase 11: Popup Overall Status Banner */
+.popup-overall-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  border: 1px solid var(--card-border);
+  transition: all 0.25s ease;
+}
+
+.popup-overall-banner.pass {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.popup-overall-banner.mismatch {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.popup-overall-banner.review {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.popup-overall-banner.processing {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.popup-overall-banner.waiting-type {
+  background: rgba(148, 163, 184, 0.08);
+  border-color: rgba(148, 163, 184, 0.25);
+}
+
+.popup-banner-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.popup-banner-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.popup-banner-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.popup-overall-banner.pass .popup-banner-title { color: #34d399; }
+.popup-overall-banner.mismatch .popup-banner-title { color: #f87171; }
+.popup-overall-banner.review .popup-banner-title { color: #fbbf24; }
+.popup-overall-banner.processing .popup-banner-title { color: #60a5fa; }
+.popup-overall-banner.waiting-type .popup-banner-title { color: #94a3b8; }
+
+.popup-banner-subtitle {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  margin-top: 1px;
+  line-height: 1.3;
+}
+
+.popup-banner-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 3px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.popup-overall-banner.pass .popup-banner-badge {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.popup-overall-banner.mismatch .popup-banner-badge {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.popup-overall-banner.review .popup-banner-badge {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fde68a;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.popup-overall-banner.processing .popup-banner-badge {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+}
+
+.popup-overall-banner.waiting-type .popup-banner-badge {
+  background: rgba(148, 163, 184, 0.15);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
 .popup-footer {
   padding: 8px 14px;
   border-top: 1px solid rgba(51, 65, 85, 0.5);
@@ -933,3 +1204,4 @@ body {
   text-align: center;
   background-color: rgba(15, 23, 42, 0.7);
 }
+

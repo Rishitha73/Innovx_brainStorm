@@ -41,6 +41,33 @@
             <div class="info-val-highlight" id="portal-name-display">demo-scholarship-portal</div>
           </div>
 
+          <!-- Phase 11: Top Overall Status Banner in Popup -->
+          <div class="popup-overall-banner waiting-type" id="popup-overall-banner">
+            <div class="popup-banner-icon" id="popup-banner-icon">🛡️</div>
+            <div class="popup-banner-content">
+              <div class="popup-banner-title" id="popup-banner-title">Waiting for Document Type</div>
+              <div class="popup-banner-subtitle" id="popup-banner-subtitle">Select a document type in the form to begin verification.</div>
+            </div>
+            <span class="popup-banner-badge" id="popup-banner-badge">WAITING</span>
+          </div>
+
+          <!-- Phase 9: Document Type Display Card (Detected from Form) -->
+          <div class="doc-type-section" id="doc-type-section">
+            <div class="section-header">
+              <span>🏷️ Document Type</span>
+              <span class="doc-type-badge" id="doc-type-badge">Not Selected</span>
+            </div>
+            <div class="doc-type-card">
+              <div class="doc-type-detected-row">
+                <span class="doc-type-detected-label">Detected from form:</span>
+                <span id="doc-type-detected-value" class="doc-type-detected-value">Not selected</span>
+              </div>
+              <div class="doc-type-helper" id="doc-type-helper">
+                The active schema is determined by the document type selected in the form.
+              </div>
+            </div>
+          </div>
+
           <!-- Phase 4: Document Validation Card -->
           <div class="document-section">
             <div class="section-header">

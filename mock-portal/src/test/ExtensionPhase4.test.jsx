@@ -109,7 +109,7 @@ describe('Phase 4: File Detection + Client-Side File Validation', () => {
 
     fireEvent.change(fileInput, { target: { files: [validFile] } });
 
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 100));
 
     expect(latestDocState).not.toBeNull();
     expect(latestDocState.file.name).toBe('test_cert.pdf');
@@ -134,7 +134,7 @@ describe('Phase 4: File Detection + Client-Side File Validation', () => {
     // 1. First file: valid PDF
     const firstFile = createSyntheticFile('first_cert.pdf', 'application/pdf', PDF_BYTES, 1024 * 50);
     fireEvent.change(fileInput, { target: { files: [firstFile] } });
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 100));
 
     expect(latestDocState.file.name).toBe('first_cert.pdf');
     expect(latestDocState.fileValidation.passed).toBe(true);
@@ -142,7 +142,7 @@ describe('Phase 4: File Detection + Client-Side File Validation', () => {
     // 2. Second file: replaced with oversized file
     const secondFile = createSyntheticFile('second_huge.pdf', 'application/pdf', PDF_BYTES, 3 * 1024 * 1024);
     fireEvent.change(fileInput, { target: { files: [secondFile] } });
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 100));
 
     expect(latestDocState.file.name).toBe('second_huge.pdf');
     expect(latestDocState.fileValidation.passed).toBe(false);

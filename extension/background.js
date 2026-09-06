@@ -185,12 +185,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message && message.type === 'DOCUMENT_TYPE_CHANGED') {
+    const existing = tabStatusMap.get(tabId) || {};
+    existing.documentType = message.documentType || null;
+    if (message.verification) {
+      existing.verification = message.verification;
+    }
+    existing.timestamp = Date.now();
+    tabStatusMap.set(tabId, existing);
+
+    console.log('Background received: DOCUMENT_TYPE_CHANGED', {
+      tabId,
+      portalId: message.portalId,
+      documentType: message.documentType
+    });
+
+    sendResponse({ status: 'ACKNOWLEDGED', documentType: message.documentType });
+    return true;
+  }
+
   if (message && message.type === 'FORM_FIELD_CHANGED') {
     const existing = tabStatusMap.get(tabId) || {};
     const fields = message.formFields || message.form || message.formState;
     if (fields) {
       existing.formFields = fields;
       existing.form = fields;
+    }
+    if (message.documentType !== undefined) {
+      existing.documentType = message.documentType;
     }
     if (message.verification) {
       existing.verification = message.verification;
@@ -216,6 +238,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (fields) {
       existing.formFields = fields;
       existing.form = fields;
+    }
+    if (message.documentType !== undefined) {
+      existing.documentType = message.documentType;
     }
     if (message.verification) {
       existing.verification = message.verification;

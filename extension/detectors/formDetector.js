@@ -23,6 +23,19 @@ class FormDetector {
     return el;
   }
 
+  // Returns all configured field definitions including the document-type selector
+  getFieldConfigs() {
+    const fields = Array.isArray(this.portalConfig?.fields) ? [...this.portalConfig.fields] : [];
+    if (this.portalConfig?.documentTypeSelector && !fields.some((f) => f.logicalName === 'documentType')) {
+      fields.push({
+        logicalName: 'documentType',
+        selector: this.portalConfig.documentTypeSelector,
+        type: 'select'
+      });
+    }
+    return fields;
+  }
+
   // Initialize form field state and attach input/change listeners
   initialize() {
     this.cleanup();
@@ -30,21 +43,28 @@ class FormDetector {
 
     console.log('[FORM TRACE] FormDetector initialized');
 
-    if (!this.portalConfig || !Array.isArray(this.portalConfig.fields)) {
+    if (!this.portalConfig) {
       return this.formState;
     }
 
-    const nameField = this.portalConfig.fields.find((f) => f.logicalName === 'name');
-    const dobField = this.portalConfig.fields.find((f) => f.logicalName === 'dob');
-    const certField = this.portalConfig.fields.find((f) => f.logicalName === 'certificateNumber');
+    const fieldConfigs = this.getFieldConfigs();
+    if (fieldConfigs.length === 0) {
+      return this.formState;
+    }
+
+    const nameField = fieldConfigs.find((f) => f.logicalName === 'name');
+    const dobField = fieldConfigs.find((f) => f.logicalName === 'dob');
+    const certField = fieldConfigs.find((f) => f.logicalName === 'certificateNumber');
+    const docTypeField = fieldConfigs.find((f) => f.logicalName === 'documentType');
 
     if (nameField) console.log(`[FORM TRACE] name selector = ${nameField.selector}`);
     if (dobField) console.log(`[FORM TRACE] dob selector = ${dobField.selector}`);
     if (certField) console.log(`[FORM TRACE] certificate selector = ${certField.selector}`);
+    if (docTypeField) console.log(`[FORM TRACE] documentType selector = ${docTypeField.selector}`);
 
     const doc = (typeof document !== 'undefined') ? document : (typeof globalThis !== 'undefined' ? globalThis.document : null);
 
-    this.portalConfig.fields.forEach((fieldConfig) => {
+    fieldConfigs.forEach((fieldConfig) => {
       const { logicalName, selector, type } = fieldConfig;
       const element = this.resolveElement(doc, selector);
 
@@ -140,12 +160,12 @@ class FormDetector {
   // Handles updates to a specific field
   handleFieldUpdate(logicalName, newValue, eventType = 'input') {
     const prevValue = this.formState[logicalName] ? this.formState[logicalName].value : undefined;
-    const fieldConfig = (this.portalConfig?.fields || []).find((f) => f.logicalName === logicalName) || {};
+    const fieldConfig = this.getFieldConfigs().find((f) => f.logicalName === logicalName) || {};
 
     this.formState[logicalName] = {
       logicalName,
       value: newValue,
-      type: fieldConfig.type || 'text',
+      type: fieldConfig.type || (logicalName === 'documentType' ? 'select' : 'text'),
       lastUpdated: Date.now(),
       found: true
     };
@@ -169,12 +189,12 @@ class FormDetector {
 
   // Handles delegated DOM input/change events matching configured selectors
   handleDelegatedEvent(event, eventType) {
-    if (!event || !event.target || !this.portalConfig || !Array.isArray(this.portalConfig.fields)) {
+    if (!event || !event.target || !this.portalConfig) {
       return;
     }
 
     const target = event.target;
-    this.portalConfig.fields.forEach((fieldConfig) => {
+    this.getFieldConfigs().forEach((fieldConfig) => {
       const { logicalName, selector } = fieldConfig;
       const targetId = target.id ? `#${target.id}` : '';
       const isMatch =
@@ -190,7 +210,7 @@ class FormDetector {
 
   // Synchronizes state directly with current DOM input values
   syncWithDom() {
-    if (!this.portalConfig || !Array.isArray(this.portalConfig.fields)) {
+    if (!this.portalConfig) {
       return this.formState;
     }
 
@@ -200,7 +220,7 @@ class FormDetector {
     let hasChanged = false;
     let firstChangedField = null;
 
-    this.portalConfig.fields.forEach((fieldConfig) => {
+    this.getFieldConfigs().forEach((fieldConfig) => {
       const { logicalName, selector, type } = fieldConfig;
       const element = this.resolveElement(doc, selector);
 
@@ -209,7 +229,7 @@ class FormDetector {
           this.formState[logicalName] = {
             logicalName,
             value: '',
-            type: type || 'text',
+            type: type || (logicalName === 'documentType' ? 'select' : 'text'),
             lastUpdated: Date.now(),
             found: false
           };
@@ -227,7 +247,7 @@ class FormDetector {
         this.formState[logicalName] = {
           logicalName,
           value: currentValue,
-          type: type || 'text',
+          type: type || (logicalName === 'documentType' ? 'select' : 'text'),
           lastUpdated: Date.now(),
           found: true
         };

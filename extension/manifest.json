@@ -32,9 +32,15 @@
         "validators/crossVerifier.js",
         "analyzers/qualityAnalyzer.js",
         "ocr/ocrEngine.js",
+        "utils/debounce.js",
         "detectors/formDetector.js",
         "detectors/fileDetector.js",
+        "ui/inPageUI.js",
+        "guards/submitGuard.js",
         "content.js"
+      ],
+      "css": [
+        "ui/inPageUI.css"
       ],
       "run_at": "document_idle"
     }

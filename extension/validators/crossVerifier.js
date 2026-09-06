@@ -35,11 +35,33 @@ class CrossVerifier {
       this.defaultSchema = null;
       this.rules = { ...DEFAULT_VERIFICATION_RULES, ...(schemaOrRules || {}) };
     }
+    this.metrics = {
+      crossVerificationRuns: 0,
+      fieldComparisonRuns: {}
+    };
+  }
+
+  resetMetrics() {
+    this.metrics = {
+      crossVerificationRuns: 0,
+      fieldComparisonRuns: {}
+    };
+  }
+
+  getMetrics() {
+    return {
+      crossVerificationRuns: this.metrics.crossVerificationRuns,
+      fieldComparisonRuns: { ...this.metrics.fieldComparisonRuns }
+    };
   }
 
   // Resolves a schema object or string identifier against the Schema Registry
   resolveSchema(schemaInput) {
-    if (!schemaInput) {
+    if (schemaInput === null || schemaInput === '') {
+      return null;
+    }
+
+    if (schemaInput === undefined) {
       if (this.defaultSchema) return this.defaultSchema;
       const getter = (schemaRegistry && typeof schemaRegistry.getSchema === 'function')
         ? schemaRegistry.getSchema
@@ -117,7 +139,7 @@ class CrossVerifier {
   }
 
   // Schema-driven extraction across all fields in the active schema
-  extractFields(rawOcrText, schemaParam = null) {
+  extractFields(rawOcrText, schemaParam = undefined) {
     const schema = this.resolveSchema(schemaParam);
     if (!schema || !Array.isArray(schema.fields)) {
       return {};
@@ -235,6 +257,9 @@ class CrossVerifier {
 
   // Generic schema-driven field comparison
   compareField(rawFormVal, rawDocVal, fieldDef, isOcrComplete, isConfidenceLow, ocrConfidence) {
+    const fieldMetricKey = fieldDef.id || fieldDef.logicalName || fieldDef.formField || 'unknown';
+    this.metrics.fieldComparisonRuns[fieldMetricKey] = (this.metrics.fieldComparisonRuns[fieldMetricKey] || 0) + 1;
+
     const strategy = fieldDef.strategy || fieldDef.comparison || 'exactNormalizedString';
     const threshold = typeof fieldDef.threshold === 'number' ? fieldDef.threshold : 0.85;
     const isRequired = fieldDef.required !== false;
@@ -339,15 +364,17 @@ class CrossVerifier {
 
   // Main Cross-Verification Entry Point
   // Supports verify({ formData, ocrResult, schema }) and verify(formData, ocrResult, schema)
-  verify(formDataOrOptions = {}, ocrResultParam = null, schemaParam = null) {
+  verify(formDataOrOptions = {}, ocrResultParam = null, schemaParam = undefined) {
+    this.metrics.crossVerificationRuns++;
+
     let formData = {};
     let ocrResult = null;
-    let schemaTarget = null;
+    let schemaTarget = undefined;
 
     if (formDataOrOptions && formDataOrOptions.formData !== undefined) {
       formData = formDataOrOptions.formData || {};
       ocrResult = formDataOrOptions.ocrResult || null;
-      schemaTarget = formDataOrOptions.schema || schemaParam;
+      schemaTarget = formDataOrOptions.schema !== undefined ? formDataOrOptions.schema : schemaParam;
     } else {
       formData = formDataOrOptions || {};
       ocrResult = ocrResultParam || null;
@@ -357,12 +384,17 @@ class CrossVerifier {
     // Resolve schema
     const schema = this.resolveSchema(schemaTarget);
     if (!schema || !Array.isArray(schema.fields) || schema.fields.length === 0) {
+      const hasTarget = schemaTarget !== null && schemaTarget !== undefined && schemaTarget !== '';
       return {
-        status: 'failed',
-        overallStatus: null,
+        status: hasTarget ? 'failed' : 'waiting_for_schema',
+        documentType: typeof schemaTarget === 'string' ? schemaTarget : (schemaTarget?.documentType || null),
+        displayName: schemaTarget?.displayName || null,
+        overallStatus: hasTarget ? 'SCHEMA_UNAVAILABLE' : 'WAITING_FOR_TYPE',
         fields: {},
         extractedFields: {},
-        reasons: ['No validation schema found for document type.']
+        reasons: hasTarget
+          ? [`No validation schema found for document type: "${typeof schemaTarget === 'string' ? schemaTarget : 'specified document type'}". Validation schema unavailable.`]
+          : ['Waiting for document type. Please select a document type to begin cross-verification.']
       };
     }
 
@@ -443,6 +475,120 @@ class CrossVerifier {
       overallStatus,
       fields: fieldResults,
       extractedFields,
+      reasons,
+      timestamp: Date.now()
+    };
+  }
+
+  // Phase 10: Single-field verification without re-running other fields or full OCR extraction
+  verifyField(fieldId, rawFormVal, ocrResult = null, schemaInput = undefined, existingVerification = null) {
+    const schema = this.resolveSchema(schemaInput);
+    if (!schema || !Array.isArray(schema.fields) || schema.fields.length === 0) {
+      if (existingVerification) return existingVerification;
+      return this.verify({ [fieldId]: rawFormVal }, ocrResult, schemaInput);
+    }
+
+    const fieldDef = schema.fields.find((fd) =>
+      fd.id === fieldId ||
+      fd.logicalName === fieldId ||
+      fd.formField === fieldId ||
+      fd.name === fieldId
+    );
+
+    if (!fieldDef) {
+      return existingVerification || this.verify({ [fieldId]: rawFormVal }, ocrResult, schema);
+    }
+
+    const isOcrComplete = Boolean(ocrResult && ocrResult.status === 'succeeded');
+    const ocrConfidence = (ocrResult && typeof ocrResult.confidence === 'number')
+      ? ocrResult.confidence
+      : 0;
+    const isConfidenceLow = isOcrComplete && (ocrConfidence < this.rules.minConfidenceThreshold);
+
+    // Retrieve docValue: preferentially from existingVerification.extractedFields, or extract single field
+    let rawDocVal = null;
+    if (existingVerification && existingVerification.extractedFields) {
+      const ef = existingVerification.extractedFields;
+      rawDocVal = ef[fieldDef.id] !== undefined
+        ? ef[fieldDef.id]
+        : (ef[fieldDef.logicalName] !== undefined ? ef[fieldDef.logicalName] : (ef[fieldDef.formField] || null));
+    }
+    if (rawDocVal === null && isOcrComplete && ocrResult?.text) {
+      rawDocVal = this.extractField(ocrResult.text, fieldDef);
+    }
+
+    const formattedFormVal = this.getFieldValue(rawFormVal);
+
+    // Run single field comparison (increments fieldComparisonRuns only for this field)
+    const fRes = this.compareField(
+      formattedFormVal,
+      rawDocVal,
+      fieldDef,
+      isOcrComplete,
+      isConfidenceLow,
+      ocrConfidence
+    );
+
+    if (!existingVerification || !existingVerification.fields) {
+      const fullFormData = { [fieldId]: rawFormVal };
+      return this.verify(fullFormData, ocrResult, schema);
+    }
+
+    // Merge into shallow clone of existing fields
+    const updatedFields = { ...existingVerification.fields };
+    if (fieldDef.id) updatedFields[fieldDef.id] = fRes;
+    if (fieldDef.logicalName) updatedFields[fieldDef.logicalName] = fRes;
+    if (fieldDef.formField) updatedFields[fieldDef.formField] = fRes;
+
+    // Recalculate overallStatus and reasons across schema fields
+    let hasMismatch = false;
+    let hasNeedsReview = false;
+    const reasons = [];
+
+    schema.fields.forEach((fd) => {
+      const curRes = updatedFields[fd.id] || updatedFields[fd.logicalName] || updatedFields[fd.formField];
+      if (!curRes) return;
+      if (curRes.status === 'MISMATCH') {
+        hasMismatch = true;
+        if (curRes.reason) reasons.push(curRes.reason);
+      } else if (curRes.status === 'NEEDS_REVIEW') {
+        if (fd.required !== false) {
+          hasNeedsReview = true;
+          if (curRes.reason) reasons.push(curRes.reason);
+        }
+      }
+    });
+
+    let overallStatus = 'MATCH';
+    if (!isOcrComplete) {
+      overallStatus = 'NEEDS_REVIEW';
+    } else if (hasMismatch) {
+      overallStatus = 'MISMATCH';
+    } else if (hasNeedsReview) {
+      overallStatus = 'NEEDS_REVIEW';
+    }
+
+    const isOcrProcessing = Boolean(ocrResult && ocrResult.status === 'processing');
+    let verifStatus = 'idle';
+    if (isOcrComplete) {
+      verifStatus = 'completed';
+    } else if (isOcrProcessing) {
+      verifStatus = 'processing';
+    }
+
+    const updatedExtractedFields = { ...(existingVerification.extractedFields || {}) };
+    if (rawDocVal !== null) {
+      if (fieldDef.id) updatedExtractedFields[fieldDef.id] = rawDocVal;
+      if (fieldDef.logicalName) updatedExtractedFields[fieldDef.logicalName] = rawDocVal;
+    }
+
+    return {
+      status: verifStatus,
+      documentType: schema.documentType,
+      displayName: schema.displayName,
+      overallStatus,
+      fields: updatedFields,
+      extractedFields: updatedExtractedFields,
       reasons,
       timestamp: Date.now()
     };

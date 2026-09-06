@@ -54,6 +54,24 @@ class FileDetector {
     this.currentFileRef = null;
     this.listeners = [];
     this.callbacks = [];
+    this.currentRunId = 0;
+    this.metrics = {
+      fileValidationRuns: 0,
+      qualityAnalysisRuns: 0,
+      ocrRuns: 0
+    };
+  }
+
+  resetMetrics() {
+    this.metrics = {
+      fileValidationRuns: 0,
+      qualityAnalysisRuns: 0,
+      ocrRuns: 0
+    };
+  }
+
+  getMetrics() {
+    return { ...this.metrics };
   }
 
   setQualityAnalyzer(qa) {
@@ -194,8 +212,10 @@ class FileDetector {
       return;
     }
 
-    this.activeOcrJobId = (this.activeOcrJobId || 0) + 1;
-    const currentJobId = this.activeOcrJobId;
+    this.currentRunId = (this.currentRunId || 0) + 1;
+    const runId = this.currentRunId;
+    this.activeOcrJobId = runId;
+    const currentJobId = runId;
 
     // Reset OCR and quality state on every new file processing
     this.fileState.ocr = {
@@ -206,7 +226,13 @@ class FileDetector {
     };
 
     // 1. File Validator (Phase 4)
+    this.metrics.fileValidationRuns++;
     const valResult = await this.validator.validate(file);
+    if (this.currentRunId !== runId) {
+      console.log(`[File Detector] Superseded run ${runId} during file validation (current: ${this.currentRunId})`);
+      return;
+    }
+
     this.fileState.file = valResult.file;
     this.fileState.fileValidation = {
       passed: valResult.passed,
@@ -241,6 +267,7 @@ class FileDetector {
     // 2. Document Quality Analysis (Phase 5)
     let rasterizedData = null;
     if (this.qualityAnalyzer) {
+      if (this.currentRunId !== runId) return;
       this.fileState.quality = {
         status: 'processing',
         blurScore: null,
@@ -254,7 +281,13 @@ class FileDetector {
       this.notifySubscribers();
 
       try {
+        this.metrics.qualityAnalysisRuns++;
         const qResult = await this.qualityAnalyzer.analyze(file);
+        if (this.currentRunId !== runId) {
+          console.log(`[File Detector] Superseded run ${runId} during quality analysis (current: ${this.currentRunId})`);
+          return;
+        }
+
         this.fileState.quality = {
           status: 'succeeded',
           blurScore: qResult.blurScore,
@@ -267,6 +300,7 @@ class FileDetector {
         };
         console.log(`[File Detector] Quality Analysis complete: ${qResult.passed ? 'PASSED' : 'WARNING'}`);
       } catch (qErr) {
+        if (this.currentRunId !== runId) return;
         console.error('[File Detector] Unexpected error during quality analysis:', qErr);
         this.fileState.quality = {
           status: 'failed',
@@ -280,6 +314,7 @@ class FileDetector {
         };
       }
     } else {
+      if (this.currentRunId !== runId) return;
       this.fileState.quality = {
         status: 'not_run',
         blurScore: null,
@@ -291,10 +326,12 @@ class FileDetector {
         reasons: []
       };
     }
+    if (this.currentRunId !== runId) return;
     this.notifySubscribers();
 
     // 3. OCR Pipeline (Phase 6)
     if (this.ocrEngine) {
+      if (this.currentRunId !== runId) return;
       this.fileState.ocr = {
         status: 'processing',
         text: '',
@@ -313,17 +350,21 @@ class FileDetector {
             const raster = isPdf
               ? await this.qualityAnalyzer.rasterizePdf(file)
               : await this.qualityAnalyzer.rasterizeImage(file);
+            if (this.currentRunId !== runId) return;
             if (raster && (raster.canvas || raster.imageData)) {
               ocrInput = raster.canvas || raster.imageData;
             }
           } catch (rErr) {
+            if (this.currentRunId !== runId) return;
             console.warn('[File Detector] Document rasterization error before OCR:', rErr);
           }
         }
 
+        if (this.currentRunId !== runId) return;
+        this.metrics.ocrRuns++;
         const ocrResult = await this.ocrEngine.recognize(ocrInput);
-        if (this.activeOcrJobId !== currentJobId) {
-          console.log(`[File Detector] Discarding stale OCR result from job ${currentJobId} (current: ${this.activeOcrJobId})`);
+        if (this.currentRunId !== runId || this.activeOcrJobId !== currentJobId) {
+          console.log(`[File Detector] Discarding stale OCR result from job ${currentJobId} (current: ${this.currentRunId})`);
           return;
         }
 
@@ -335,7 +376,7 @@ class FileDetector {
         };
         console.log(`[File Detector] OCR complete: ${ocrResult.status} (confidence: ${ocrResult.confidence}%)`);
       } catch (ocrErr) {
-        if (this.activeOcrJobId !== currentJobId) return;
+        if (this.currentRunId !== runId || this.activeOcrJobId !== currentJobId) return;
         console.error('[File Detector] Unexpected error during OCR:', ocrErr);
         this.fileState.ocr = {
           status: 'failed',
@@ -344,8 +385,10 @@ class FileDetector {
           reasons: [`OCR recognition error: ${ocrErr.message}`]
         };
       }
+      if (this.currentRunId !== runId) return;
       this.notifySubscribers();
     } else {
+      if (this.currentRunId !== runId) return;
       this.fileState.ocr = {
         status: 'not_run',
         text: '',
@@ -425,7 +468,7 @@ class FileDetector {
       file: this.fileState.file ? { ...this.fileState.file } : null,
       fileValidation: {
         passed: this.fileState.fileValidation.passed,
-        reasons: [...this.fileState.fileValidation.reasons]
+        reasons: Array.isArray(this.fileState.fileValidation?.reasons) ? [...this.fileState.fileValidation.reasons] : []
       },
       quality: {
         status: this.fileState.quality.status,
@@ -435,13 +478,13 @@ class FileDetector {
         contrastOk: this.fileState.quality.contrastOk,
         croppingOk: this.fileState.quality.croppingOk,
         passed: this.fileState.quality.passed,
-        reasons: [...this.fileState.quality.reasons]
+        reasons: Array.isArray(this.fileState.quality?.reasons) ? [...this.fileState.quality.reasons] : []
       },
       ocr: {
         status: this.fileState.ocr.status,
         text: this.fileState.ocr.text,
         confidence: this.fileState.ocr.confidence,
-        reasons: [...this.fileState.ocr.reasons]
+        reasons: Array.isArray(this.fileState.ocr?.reasons) ? [...this.fileState.ocr.reasons] : []
       }
     };
   }

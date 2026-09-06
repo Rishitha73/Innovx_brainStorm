@@ -1,0 +1,734 @@
+/* Pre-Submission Error Guard - In-Page Validation UI Styles (Phase 11) */
+/* Scoped with .guard-* prefix to guarantee non-collision with host portal styles */
+
+/* ==========================================================================
+   1. OVERALL STATUS BANNER (Injected above form grid)
+   ========================================================================== */
+.guard-overall-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  margin-bottom: 24px;
+  border-radius: 12px;
+  border: 1.5px solid transparent;
+  background: #f8fafc;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  transition: all 0.25s ease;
+}
+
+.guard-banner-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.guard-banner-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.guard-banner-title {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.25;
+  margin-bottom: 2px;
+}
+
+.guard-banner-subtitle {
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: #64748b;
+}
+
+.guard-banner-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Banner Theme Variants */
+.guard-overall-banner.pass {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
+}
+.guard-overall-banner.pass .guard-banner-subtitle {
+  color: #047857;
+}
+.guard-overall-banner.pass .guard-banner-badge {
+  background: #10b981;
+  color: #ffffff;
+}
+
+.guard-overall-banner.action-required {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+.guard-overall-banner.action-required .guard-banner-subtitle {
+  color: #b91c1c;
+}
+.guard-overall-banner.action-required .guard-banner-badge {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.guard-overall-banner.needs-review {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+.guard-overall-banner.needs-review .guard-banner-subtitle {
+  color: #b45309;
+}
+.guard-overall-banner.needs-review .guard-banner-badge {
+  background: #f59e0b;
+  color: #ffffff;
+}
+
+.guard-overall-banner.processing {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1e40af;
+}
+.guard-overall-banner.processing .guard-banner-subtitle {
+  color: #2563eb;
+}
+.guard-overall-banner.processing .guard-banner-badge {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+.guard-overall-banner.waiting-type,
+.guard-overall-banner.waiting-doc {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #334155;
+}
+.guard-overall-banner.waiting-type .guard-banner-badge,
+.guard-overall-banner.waiting-doc .guard-banner-badge {
+  background: #64748b;
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   2. FIELD-LEVEL BADGES (Placed inside/alongside field labels)
+   ========================================================================== */
+.guard-field-badge {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  line-height: 1;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.guard-field-badge .guard-badge-icon {
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.guard-field-badge.guard-badge-match {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+}
+
+.guard-field-badge.guard-badge-mismatch {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.guard-field-badge.guard-badge-review {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.guard-field-badge.guard-badge-pending {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+  animation: guardPulse 1.5s infinite;
+}
+
+@keyframes guardPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
+
+/* ==========================================================================
+   3. INLINE ERROR / WARNING PANELS (Placed directly below input containers)
+   ========================================================================== */
+.guard-inline-panel {
+  border-radius: 8px;
+  border: 1.5px solid transparent;
+  padding: 12px 14px;
+  margin-top: 4px;
+  margin-bottom: 4px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  animation: guardSlideDown 0.2s ease-out;
+}
+
+@keyframes guardSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.guard-inline-panel.guard-panel-mismatch {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #7f1d1d;
+}
+
+.guard-inline-panel.guard-panel-review {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #78350f;
+}
+
+.guard-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 0.86rem;
+  margin-bottom: 6px;
+}
+
+.guard-panel-desc {
+  font-size: 0.8rem;
+  margin-bottom: 8px;
+  color: inherit;
+  opacity: 0.9;
+}
+
+.guard-panel-comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.guard-panel-compare-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.guard-compare-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #64748b;
+  letter-spacing: 0.3px;
+}
+
+.guard-compare-val {
+  font-size: 0.84rem;
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.guard-panel-mismatch .form-val {
+  color: #991b1b;
+}
+
+.guard-panel-mismatch .doc-val {
+  color: #047857;
+}
+
+.guard-panel-review .form-val {
+  color: #92400e;
+}
+
+.guard-panel-review .doc-val {
+  color: #64748b;
+  font-style: italic;
+}
+
+.guard-panel-action {
+  font-size: 0.78rem;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+  border-left: 3px solid currentColor;
+}
+
+/* ==========================================================================
+   4. DOCUMENT STATUS PANEL (Injected near the upload dropzone)
+   ========================================================================== */
+.guard-doc-status-card {
+  margin-top: 14px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  padding: 16px 20px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  transition: all 0.2s ease;
+}
+
+.guard-doc-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.guard-doc-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.guard-doc-overall-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.guard-doc-overall-badge.pass {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.guard-doc-overall-badge.warning {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.guard-doc-overall-badge.error {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.guard-doc-overall-badge.processing {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+  animation: guardPulse 1.5s infinite;
+}
+
+.guard-doc-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .guard-doc-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.guard-doc-item {
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  padding: 10px 12px;
+}
+
+.guard-doc-item-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.guard-item-icon {
+  font-size: 0.95rem;
+}
+
+.guard-item-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #1e293b;
+  flex: 1;
+}
+
+.guard-pill {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.guard-pill.pass {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.guard-pill.warning {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.guard-pill.error {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.guard-pill.processing {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+  animation: guardPulse 1.5s infinite;
+}
+
+.guard-item-desc {
+  font-size: 0.74rem;
+  color: #64748b;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+/* ==========================================================================
+   4. SUBMIT GUARD BLOCKED SUMMARY (Phase 12)
+   ========================================================================== */
+.guard-submit-blocked-card {
+  margin-top: 18px;
+  margin-bottom: 18px;
+  padding: 16px 20px;
+  background: #fef2f2;
+  border: 1.5px solid #f87171;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.12);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  animation: guardSlideDown 0.25s ease-out;
+}
+
+@keyframes guardSlideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.guard-blocked-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.guard-blocked-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.guard-blocked-title-wrap {
+  flex: 1;
+}
+
+.guard-blocked-title {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #991b1b;
+  margin-bottom: 2px;
+}
+
+.guard-blocked-subtitle {
+  font-size: 0.8rem;
+  color: #b91c1c;
+}
+
+.guard-blocked-badge {
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.guard-blocked-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.guard-blocked-item {
+  display: flex;
+  gap: 10px;
+  background: #ffffff;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.guard-blocked-item-icon {
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.guard-blocked-item-content {
+  flex: 1;
+}
+
+.guard-blocked-item-headline {
+  font-weight: 700;
+  color: #991b1b;
+  margin-bottom: 3px;
+}
+
+.guard-blocked-item-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 6px 0;
+  font-size: 0.75rem;
+}
+
+.guard-blocked-val-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: monospace;
+}
+
+.guard-blocked-item-action {
+  font-size: 0.75rem;
+  color: #475569;
+  margin-top: 4px;
+}
+
+.guard-blocked-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.guard-btn-review {
+  background: #dc2626;
+  color: #ffffff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.guard-btn-review:hover {
+  background: #b91c1c;
+}
+
+/* ==========================================================================
+   PHASE 12 UX REFINEMENT: Clean Form UI
+   Hides in-form diagnostic panels and badges from the registration form
+   ========================================================================== */
+.guard-overall-banner,
+.guard-field-badge,
+.guard-inline-panel,
+.guard-doc-status-card,
+.guard-submit-blocked-card {
+  display: none !important;
+}
+
+/* ==========================================================================
+   SUBMIT BUTTON STATES
+   ========================================================================== */
+#submit-application:disabled,
+#submit-application[disabled],
+.guard-submit-disabled {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  pointer-events: auto !important;
+  filter: grayscale(0.4) !important;
+  box-shadow: none !important;
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+#submit-application:not(:disabled),
+.guard-submit-enabled {
+  opacity: 1 !important;
+  cursor: pointer !important;
+  filter: none !important;
+}
+
+/* ==========================================================================
+   FLOATING ERROR POPUP (Clean Toast / Modal)
+   ========================================================================== */
+.guard-error-popup {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  width: calc(100% - 48px);
+  max-width: 420px;
+  background: #111827;
+  color: #f9fafb;
+  border: 1px solid #ef4444;
+  border-left: 5px solid #ef4444;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+  z-index: 999999;
+  padding: 16px 18px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  animation: guardPopupSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+@keyframes guardPopupSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.guard-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.guard-popup-icon-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.guard-popup-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.guard-popup-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fca5a5;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.guard-popup-close-btn {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+}
+
+.guard-popup-close-btn:hover {
+  color: #f3f4f6;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.guard-popup-body {
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: #e5e7eb;
+}
+
+.guard-popup-message {
+  margin-bottom: 8px;
+}
+
+.guard-popup-action-hint {
+  font-size: 0.82rem;
+  color: #cbd5e1;
+  background: rgba(239, 68, 68, 0.12);
+  padding: 8px 10px;
+  border-radius: 6px;
+  border-left: 3px solid #f87171;
+  margin-top: 8px;
+}
+
+.guard-popup-issues-list {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.guard-popup-issues-list li {
+  margin-bottom: 4px;
+}
+
+.guard-popup-footer {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.guard-popup-action-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #f3f4f6;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.guard-popup-action-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+

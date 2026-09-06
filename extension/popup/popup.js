@@ -64,17 +64,31 @@ document.addEventListener('DOMContentLoaded', () => {
   const verifContentBlock = document.getElementById('verif-content-block');
   const verifOverallBox = document.getElementById('verif-overall-box');
   const verifOverallText = document.getElementById('verif-overall-text');
+  const verifFieldCardName = document.getElementById('verif-field-name');
   const verifStatusName = document.getElementById('verif-status-name');
   const verifFormName = document.getElementById('verif-form-name');
   const verifDocName = document.getElementById('verif-doc-name');
+  const verifFieldCardDob = document.getElementById('verif-field-dob');
   const verifStatusDob = document.getElementById('verif-status-dob');
   const verifFormDob = document.getElementById('verif-form-dob');
   const verifDocDob = document.getElementById('verif-doc-dob');
+  const verifFieldCardCert = document.getElementById('verif-field-cert');
   const verifStatusCert = document.getElementById('verif-status-cert');
   const verifFormCert = document.getElementById('verif-form-cert');
   const verifDocCert = document.getElementById('verif-doc-cert');
   const verifReasonsBox = document.getElementById('verif-reasons-box');
   const verifReasonsList = document.getElementById('verif-reasons-list');
+
+  // Document Type Elements (Phase 9 - Display Detected from Form)
+  const docTypeBadge = document.getElementById('doc-type-badge');
+  const docTypeDetectedVal = document.getElementById('doc-type-detected-value');
+
+  // Phase 11: Top Overall Status Banner Elements
+  const popupOverallBanner = document.getElementById('popup-overall-banner');
+  const popupBannerIcon = document.getElementById('popup-banner-icon');
+  const popupBannerTitle = document.getElementById('popup-banner-title');
+  const popupBannerSubtitle = document.getElementById('popup-banner-subtitle');
+  const popupBannerBadge = document.getElementById('popup-banner-badge');
 
   function showLoading() {
     loadingEl.style.display = 'flex';
@@ -90,6 +104,95 @@ document.addEventListener('DOMContentLoaded', () => {
     const portalId = status.portalId || 'demo-scholarship-portal';
     portalIdTag.textContent = portalId;
     portalNameDisplay.textContent = portalId;
+
+    // Phase 9: Display Detected Document Type from Form
+    const currentDocType = status.documentType || status.formFields?.documentType?.value || status.form?.documentType?.value || null;
+
+    let displayLabel = 'Not selected';
+    if (currentDocType) {
+      const schemaGetter = (typeof getSchema === 'function')
+        ? getSchema
+        : (globalThis.getSchema || null);
+      const s = schemaGetter ? schemaGetter(currentDocType) : null;
+      displayLabel = s?.displayName || (
+        currentDocType === 'incomeCertificate' ? 'Income Certificate' :
+        currentDocType === 'communityCertificate' ? 'Community Certificate' :
+        currentDocType === 'residenceCertificate' ? 'Residence Certificate' :
+        currentDocType
+      );
+    }
+
+    if (docTypeDetectedVal) {
+      docTypeDetectedVal.textContent = displayLabel;
+      docTypeDetectedVal.style.color = currentDocType ? '#60a5fa' : 'var(--text-muted)';
+    }
+
+    if (docTypeBadge) {
+      if (currentDocType) {
+        docTypeBadge.textContent = displayLabel;
+        docTypeBadge.className = 'doc-type-badge selected';
+      } else {
+        docTypeBadge.textContent = 'Not Selected';
+        docTypeBadge.className = 'doc-type-badge';
+      }
+    }
+
+    // Phase 11: Render Top Overall Status Banner in Popup
+    const verif = status.verification || {};
+    const doc = status.document;
+    const hasDoc = Boolean(doc && doc.file);
+    const filePassed = Boolean(doc && doc.file && doc.fileValidation && doc.fileValidation.passed);
+    const isDocProcessing = Boolean(
+      (doc?.quality?.status === 'processing') || 
+      (doc?.ocr?.status === 'processing') || 
+      (verif?.status === 'processing')
+    );
+
+    if (popupOverallBanner) {
+      if (!currentDocType || verif.overallStatus === 'WAITING_FOR_TYPE' || verif.status === 'waiting_for_schema') {
+        popupOverallBanner.className = 'popup-overall-banner waiting-type';
+        if (popupBannerIcon) popupBannerIcon.textContent = '🛡️';
+        if (popupBannerTitle) popupBannerTitle.textContent = 'Waiting for Document Type';
+        if (popupBannerSubtitle) popupBannerSubtitle.textContent = 'Select a document type in the form to begin verification.';
+        if (popupBannerBadge) popupBannerBadge.textContent = 'WAITING';
+      } else if (verif.overallStatus === 'SCHEMA_UNAVAILABLE') {
+        popupOverallBanner.className = 'popup-overall-banner mismatch';
+        if (popupBannerIcon) popupBannerIcon.textContent = '❌';
+        if (popupBannerTitle) popupBannerTitle.textContent = 'Schema Unavailable';
+        if (popupBannerSubtitle) popupBannerSubtitle.textContent = 'Selected document type is not currently supported.';
+        if (popupBannerBadge) popupBannerBadge.textContent = 'ERROR';
+      } else if (!hasDoc) {
+        popupOverallBanner.className = 'popup-overall-banner waiting-type';
+        if (popupBannerIcon) popupBannerIcon.textContent = '📄';
+        if (popupBannerTitle) popupBannerTitle.textContent = 'Document Required';
+        if (popupBannerSubtitle) popupBannerSubtitle.textContent = 'Attach your certificate to verify form values.';
+        if (popupBannerBadge) popupBannerBadge.textContent = 'NO FILE';
+      } else if (isDocProcessing) {
+        popupOverallBanner.className = 'popup-overall-banner processing';
+        if (popupBannerIcon) popupBannerIcon.textContent = '⏳';
+        if (popupBannerTitle) popupBannerTitle.textContent = 'Processing Document...';
+        if (popupBannerSubtitle) popupBannerSubtitle.textContent = 'Running quality analysis and OCR extraction.';
+        if (popupBannerBadge) popupBannerBadge.textContent = 'CHECKING';
+      } else if (verif.overallStatus === 'MATCH' || verif.overallStatus === 'ALL_PASS') {
+        popupOverallBanner.className = 'popup-overall-banner pass';
+        if (popupBannerIcon) popupBannerIcon.textContent = '✓';
+        if (popupBannerTitle) popupBannerTitle.textContent = '✓ ALL CHECKS PASS';
+        if (popupBannerSubtitle) popupBannerSubtitle.textContent = 'All fields match your uploaded document.';
+        if (popupBannerBadge) popupBannerBadge.textContent = 'PASS';
+      } else if (verif.overallStatus === 'MISMATCH') {
+        popupOverallBanner.className = 'popup-overall-banner mismatch';
+        if (popupBannerIcon) popupBannerIcon.textContent = '✕';
+        if (popupBannerTitle) popupBannerTitle.textContent = '✕ ACTION REQUIRED';
+        if (popupBannerSubtitle) popupBannerSubtitle.textContent = 'One or more fields do not match your document.';
+        if (popupBannerBadge) popupBannerBadge.textContent = 'MISMATCH';
+      } else {
+        popupOverallBanner.className = 'popup-overall-banner review';
+        if (popupBannerIcon) popupBannerIcon.textContent = '⚠';
+        if (popupBannerTitle) popupBannerTitle.textContent = '⚠ NEEDS REVIEW';
+        if (popupBannerSubtitle) popupBannerSubtitle.textContent = 'Please review flagged fields before proceeding.';
+        if (popupBannerBadge) popupBannerBadge.textContent = 'REVIEW';
+      }
+    }
 
     // 1. Phase 3: Populate Live Form Values
     const fields = status.formFields || status.form || {};
@@ -117,9 +220,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 2. Phase 4: Populate Document File Validation Status
-    const doc = status.document;
-    const filePassed = Boolean(doc && doc.file && doc.fileValidation && doc.fileValidation.passed);
-
     if (doc && doc.file) {
       if (noDocPlaceholder) noDocPlaceholder.style.display = 'none';
       if (docInfoBlock) docInfoBlock.style.display = 'block';
@@ -394,6 +494,53 @@ document.addEventListener('DOMContentLoaded', () => {
           if (verifProcessing) verifProcessing.style.display = 'none';
           if (verifContentBlock) verifContentBlock.style.display = 'block';
 
+          const isWaitingForType = !currentDocType || verif.overallStatus === 'WAITING_FOR_TYPE' || verif.status === 'waiting_for_schema';
+          const isSchemaUnavailable = verif.overallStatus === 'SCHEMA_UNAVAILABLE';
+
+          if (isWaitingForType) {
+            if (verificationOverallBadge) {
+              verificationOverallBadge.textContent = 'WAITING FOR TYPE';
+              verificationOverallBadge.className = 'verification-status-badge waiting';
+            }
+            if (verifOverallBox) {
+              verifOverallBox.className = 'verif-overall-box waiting';
+            }
+            if (verifOverallText) {
+              verifOverallText.textContent = 'Waiting for document type';
+            }
+            if (verifFieldCardName) verifFieldCardName.style.display = 'none';
+            if (verifFieldCardDob) verifFieldCardDob.style.display = 'none';
+            if (verifFieldCardCert) verifFieldCardCert.style.display = 'none';
+
+            if (verifReasonsBox && verifReasonsList) {
+              verifReasonsBox.style.display = 'block';
+              verifReasonsList.innerHTML = '<div style="color: #94a3b8; font-size: 0.72rem;">The active schema is determined by the document type selected in the form. Please select a document type in the form to begin cross-verification.</div>';
+            }
+            return;
+          }
+
+          if (isSchemaUnavailable) {
+            if (verificationOverallBadge) {
+              verificationOverallBadge.textContent = 'SCHEMA UNAVAILABLE';
+              verificationOverallBadge.className = 'verification-status-badge schema_unavailable';
+            }
+            if (verifOverallBox) {
+              verifOverallBox.className = 'verif-overall-box schema_unavailable';
+            }
+            if (verifOverallText) {
+              verifOverallText.textContent = 'Validation schema unavailable';
+            }
+            if (verifFieldCardName) verifFieldCardName.style.display = 'none';
+            if (verifFieldCardDob) verifFieldCardDob.style.display = 'none';
+            if (verifFieldCardCert) verifFieldCardCert.style.display = 'none';
+
+            if (verifReasonsBox && verifReasonsList) {
+              verifReasonsBox.style.display = 'block';
+              verifReasonsList.innerHTML = `<div style="color: #fca5a5; font-size: 0.72rem;">${verif.reasons?.[0] || 'Validation schema unavailable for selected document type.'}</div>`;
+            }
+            return;
+          }
+
           // Overall Status
           const overall = verif.overallStatus || 'NEEDS_REVIEW';
           const overallClass = overall.toLowerCase();
@@ -413,33 +560,48 @@ document.addEventListener('DOMContentLoaded', () => {
           const vf = verif.fields || {};
 
           // Field 1: Name
-          const nameF = vf.name || {};
-          if (verifFormName) verifFormName.textContent = nameF.formValue || '(empty)';
-          if (verifDocName) verifDocName.textContent = nameF.documentValue || 'Not found';
-          if (verifStatusName) {
-            const nStatus = nameF.status || 'NEEDS_REVIEW';
-            verifStatusName.textContent = nStatus === 'NEEDS_REVIEW' ? 'NEEDS REVIEW' : nStatus;
-            verifStatusName.className = `verif-pill ${nStatus.toLowerCase()}`;
+          if (vf.name) {
+            if (verifFieldCardName) verifFieldCardName.style.display = 'block';
+            const nameF = vf.name || {};
+            if (verifFormName) verifFormName.textContent = nameF.formValue || '(empty)';
+            if (verifDocName) verifDocName.textContent = nameF.documentValue || 'Not found';
+            if (verifStatusName) {
+              const nStatus = nameF.status || 'NEEDS_REVIEW';
+              verifStatusName.textContent = nStatus === 'NEEDS_REVIEW' ? 'NEEDS REVIEW' : nStatus;
+              verifStatusName.className = `verif-pill ${nStatus.toLowerCase()}`;
+            }
+          } else if (verifFieldCardName) {
+            verifFieldCardName.style.display = 'none';
           }
 
           // Field 2: Date of Birth
-          const dobF = vf.dob || {};
-          if (verifFormDob) verifFormDob.textContent = dobF.formValue || '(empty)';
-          if (verifDocDob) verifDocDob.textContent = dobF.documentValue || 'Not found';
-          if (verifStatusDob) {
-            const dStatus = dobF.status || 'NEEDS_REVIEW';
-            verifStatusDob.textContent = dStatus === 'NEEDS_REVIEW' ? 'NEEDS REVIEW' : dStatus;
-            verifStatusDob.className = `verif-pill ${dStatus.toLowerCase()}`;
+          if (vf.dob) {
+            if (verifFieldCardDob) verifFieldCardDob.style.display = 'block';
+            const dobF = vf.dob || {};
+            if (verifFormDob) verifFormDob.textContent = dobF.formValue || '(empty)';
+            if (verifDocDob) verifDocDob.textContent = dobF.documentValue || 'Not found';
+            if (verifStatusDob) {
+              const dStatus = dobF.status || 'NEEDS_REVIEW';
+              verifStatusDob.textContent = dStatus === 'NEEDS_REVIEW' ? 'NEEDS REVIEW' : dStatus;
+              verifStatusDob.className = `verif-pill ${dStatus.toLowerCase()}`;
+            }
+          } else if (verifFieldCardDob) {
+            verifFieldCardDob.style.display = 'none';
           }
 
           // Field 3: Certificate Number
-          const certF = vf.certificateNumber || {};
-          if (verifFormCert) verifFormCert.textContent = certF.formValue || '(empty)';
-          if (verifDocCert) verifDocCert.textContent = certF.documentValue || 'Not found';
-          if (verifStatusCert) {
-            const cStatus = certF.status || 'NEEDS_REVIEW';
-            verifStatusCert.textContent = cStatus === 'NEEDS_REVIEW' ? 'NEEDS REVIEW' : cStatus;
-            verifStatusCert.className = `verif-pill ${cStatus.toLowerCase()}`;
+          if (vf.certificateNumber) {
+            if (verifFieldCardCert) verifFieldCardCert.style.display = 'block';
+            const certF = vf.certificateNumber || {};
+            if (verifFormCert) verifFormCert.textContent = certF.formValue || '(empty)';
+            if (verifDocCert) verifDocCert.textContent = certF.documentValue || 'Not found';
+            if (verifStatusCert) {
+              const cStatus = certF.status || 'NEEDS_REVIEW';
+              verifStatusCert.textContent = cStatus === 'NEEDS_REVIEW' ? 'NEEDS REVIEW' : cStatus;
+              verifStatusCert.className = `verif-pill ${cStatus.toLowerCase()}`;
+            }
+          } else if (verifFieldCardCert) {
+            verifFieldCardCert.style.display = 'none';
           }
 
           // Reasons / Mismatch Callouts
@@ -576,7 +738,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Listen for live updates from content script while popup is open
     chrome.runtime.onMessage.addListener((msg) => {
-      if (msg && (msg.type === 'FORM_FIELD_CHANGED' || msg.type === 'FILE_VALIDATED' || msg.type === 'CONTENT_SCRIPT_LOADED')) {
+      if (msg && (msg.type === 'FORM_FIELD_CHANGED' || msg.type === 'FILE_VALIDATED' || msg.type === 'CONTENT_SCRIPT_LOADED' || msg.type === 'DOCUMENT_TYPE_CHANGED')) {
         refreshPopupState(activeTab.id, tabUrl);
       }
     });
