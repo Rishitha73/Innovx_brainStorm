@@ -1,0 +1,12 @@
+{
+  "name": "innovex-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pre-Submission Error Guard for Official Forms - SIH Prototype",
+  "scripts": {
+    "dev": "npm --prefix mock-portal run dev",
+    "build": "npm --prefix mock-portal run build",
+    "preview": "npm --prefix mock-portal run preview",
+    "test": "npm --prefix mock-portal run test"
+  }
+}

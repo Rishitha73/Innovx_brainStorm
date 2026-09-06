@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pre-Submission Error Guard</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="popup-wrapper">
+      <header class="popup-header">
+        <div class="header-icon">🛡️</div>
+        <div class="header-titles">
+          <h1>Pre-Submission Error Guard</h1>
+          <p class="subtitle">Official Form Integrity Guard</p>
+        </div>
+      </header>
+
+      <main class="popup-content" id="popup-content">
+        <!-- Loading / Initial State -->
+        <div class="status-box loading-box" id="loading-state">
+          <div class="status-pill">
+            <span class="pulse-dot"></span>
+            <span class="status-title">Extension loaded</span>
+          </div>
+          <p style="font-size:0.78rem; color:#94a3b8;">Detecting portal connection...</p>
+        </div>
+
+        <!-- Active Portal View -->
+        <div class="status-card active-card" id="active-state" style="display: none;">
+          <div class="status-header">
+            <span class="status-badge badge-active">
+              <span class="pulse-dot"></span>
+              Active
+            </span>
+            <span class="portal-tag" id="portal-id-tag">demo-scholarship-portal</span>
+          </div>
+
+          <div class="portal-info-block">
+            <div class="info-label">Active on:</div>
+            <div class="info-val-highlight" id="portal-name-display">demo-scholarship-portal</div>
+          </div>
+
+          <!-- Phase 4: Document Validation Card -->
+          <div class="document-section">
+            <div class="section-header">
+              <span>📄 Document File Status</span>
+              <span class="doc-status-badge" id="doc-status-badge">No File</span>
+            </div>
+            
+            <div class="doc-card" id="doc-card-details">
+              <div id="no-doc-placeholder" class="doc-placeholder-text">
+                No certificate uploaded yet.
+              </div>
+
+              <div id="doc-info-block" style="display: none;">
+                <div class="doc-row">
+                  <span class="doc-label">File Name:</span>
+                  <span class="doc-val" id="doc-file-name">-</span>
+                </div>
+                <div class="doc-row">
+                  <span class="doc-label">Type / MIME:</span>
+                  <span class="doc-val" id="doc-file-type">-</span>
+                </div>
+                <div class="doc-row">
+                  <span class="doc-label">Size:</span>
+                  <span class="doc-val" id="doc-file-size">-</span>
+                </div>
+                <div class="doc-validation-box" id="doc-validation-box">
+                  <div class="validation-status-line" id="doc-validation-summary">✓ File valid</div>
+                  <div class="validation-reasons-list" id="doc-reasons-list"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Phase 5: Document Quality Card -->
+          <div class="quality-section" id="quality-section" style="display: none;">
+            <div class="section-header">
+              <span>🔍 Document Quality</span>
+              <span class="quality-status-badge" id="quality-status-badge">NOT RUN</span>
+            </div>
+            
+            <div class="quality-card" id="quality-card">
+              <div id="quality-processing" class="quality-processing-text" style="display: none;">
+                <span class="pulse-dot"></span> Analyzing visual quality (OpenCV.js)...
+              </div>
+
+              <div id="quality-metrics-block" style="display: none;">
+                <div class="metric-row" id="metric-resolution-row">
+                  <span class="metric-icon" id="icon-res">✓</span>
+                  <span class="metric-label">Resolution:</span>
+                  <span class="metric-val" id="val-res">OK</span>
+                </div>
+                <div class="metric-row" id="metric-sharpness-row">
+                  <span class="metric-icon" id="icon-sharpness">✓</span>
+                  <span class="metric-label">Sharpness:</span>
+                  <span class="metric-val" id="val-sharpness">Acceptable</span>
+                </div>
+                <div class="metric-row" id="metric-brightness-row">
+                  <span class="metric-icon" id="icon-brightness">✓</span>
+                  <span class="metric-label">Brightness:</span>
+                  <span class="metric-val" id="val-brightness">OK</span>
+                </div>
+                <div class="metric-row" id="metric-contrast-row">
+                  <span class="metric-icon" id="icon-contrast">✓</span>
+                  <span class="metric-label">Contrast:</span>
+                  <span class="metric-val" id="val-contrast">OK</span>
+                </div>
+                <div class="metric-row" id="metric-cropping-row">
+                  <span class="metric-icon" id="icon-cropping">✓</span>
+                  <span class="metric-label">Cropping:</span>
+                  <span class="metric-val" id="val-cropping">Not Cropped</span>
+                </div>
+
+                <div class="quality-result-box" id="quality-result-box">
+                  <div class="quality-result-line" id="quality-result-line">QUALITY: PASS</div>
+                  <div class="quality-reasons-list" id="quality-reasons-list"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Phase 3: Live Form State -->
+          <div class="form-data-section">
+            <div class="section-header">
+              <span>📋 Live Form State (In-Memory)</span>
+              <span class="live-pill">LIVE</span>
+            </div>
+            <div class="form-data-card" id="form-data-display">
+              <div class="form-field-row">
+                <span class="field-name">Name:</span>
+                <span class="field-value" id="val-name">(empty)</span>
+              </div>
+              <div class="form-field-row">
+                <span class="field-name">Date of Birth:</span>
+                <span class="field-value" id="val-dob">(empty)</span>
+              </div>
+              <div class="form-field-row">
+                <span class="field-name">Certificate Number:</span>
+                <span class="field-value" id="val-cert">(empty)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Selectors Checklist -->
+          <div class="selectors-section">
+            <div class="selectors-header">
+              <span>Configured Selectors</span>
+              <span class="selector-count" id="selector-count-badge">0 / 0</span>
+            </div>
+            <div class="selectors-list" id="selectors-list">
+              <!-- Dynamically populated chips -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Inactive Card -->
+        <div class="status-card inactive-card" id="inactive-state" style="display: none;">
+          <div class="status-header">
+            <span class="status-badge badge-inactive">
+              <span class="inactive-dot"></span>
+              Inactive
+            </span>
+          </div>
+
+          <div class="inactive-message-block">
+            <h3>Unsupported Page</h3>
+            <p class="inactive-desc" id="inactive-reason">
+              The current tab does not match any configured portal endpoint.
+            </p>
+          </div>
+
+          <div class="supported-info-box">
+            <div class="supported-title">Supported Portals:</div>
+            <div class="supported-item">
+              <span class="portal-code">demo-scholarship-portal</span>
+              <span class="portal-url">http://localhost:5173/apply</span>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <footer class="popup-footer">
+        <span>Phase 5 — Document Quality Analysis Active</span>
+      </footer>
+    </div>
+    <!-- Include portal config for standalone fallback matching -->
+    <script src="../config/portalConfig.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>
