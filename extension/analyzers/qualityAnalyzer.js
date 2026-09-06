@@ -292,12 +292,12 @@ class QualityAnalyzer {
       lapStdMat = new cv.Mat();
       cv.meanStdDev(lapMat, lapMeanMat, lapStdMat);
 
-      const lapStd = lapStdMat.doubleAt(0, 0);
-      const variance = lapStd * lapStd;
-      blurScore = Math.round(variance * 100) / 100;
+      const lapStd = Number(lapStdMat.doubleAt(0, 0));
+      const variance = Number(lapStd * lapStd);
+      blurScore = Number((Math.round(variance * 100) / 100).toFixed(2));
 
-      const minSharpness = activeRules.minSharpnessScore !== undefined ? activeRules.minSharpnessScore : 50.0;
-      blurOk = blurScore >= minSharpness;
+      const minSharpness = activeRules.minSharpnessScore !== undefined ? Number(activeRules.minSharpnessScore) : 50.0;
+      blurOk = Boolean(blurScore >= minSharpness);
       if (!blurOk) {
         reasons.push(
           `❌ Document appears blurry (Sharpness metric: ${blurScore.toFixed(2)}, required: ${minSharpness}).`
@@ -306,9 +306,10 @@ class QualityAnalyzer {
       console.log(`[QualityAnalyzer] blurScore (sharpness): ${blurScore} (Ok: ${blurOk})`);
 
       // 5. Brightness Check (Grayscale Mean Intensity)
-      const meanBrightness = cv.mean(grayMat)[0];
-      const minBrightness = activeRules.minBrightness !== undefined ? activeRules.minBrightness : 40.0;
-      const maxBrightness = activeRules.maxBrightness !== undefined ? activeRules.maxBrightness : 245.0;
+      const rawMeanArr = cv.mean(grayMat);
+      const meanBrightness = Number(rawMeanArr && rawMeanArr[0] !== undefined ? rawMeanArr[0] : 0);
+      const minBrightness = activeRules.minBrightness !== undefined ? Number(activeRules.minBrightness) : 40.0;
+      const maxBrightness = activeRules.maxBrightness !== undefined ? Number(activeRules.maxBrightness) : 245.0;
 
       if (meanBrightness < minBrightness) {
         brightnessOk = false;
@@ -328,9 +329,9 @@ class QualityAnalyzer {
       grayStdMat = new cv.Mat();
       cv.meanStdDev(grayMat, grayMeanMat, grayStdMat);
 
-      const contrastStdDev = grayStdMat.doubleAt(0, 0);
-      const minContrast = activeRules.minContrastStdDev !== undefined ? activeRules.minContrastStdDev : 20.0;
-      contrastOk = contrastStdDev >= minContrast;
+      const contrastStdDev = Number(grayStdMat.doubleAt(0, 0));
+      const minContrast = activeRules.minContrastStdDev !== undefined ? Number(activeRules.minContrastStdDev) : 20.0;
+      contrastOk = Boolean(contrastStdDev >= minContrast);
       if (!contrastOk) {
         reasons.push(
           `❌ Document contrast is too low for reliable reading (Contrast std dev: ${contrastStdDev.toFixed(1)}, min: ${minContrast}).`
@@ -346,7 +347,7 @@ class QualityAnalyzer {
       const borderMarginY = Math.max(3, Math.floor(height * 0.02));
       const croppingDensityThreshold =
         activeRules.croppingEdgeDensityThreshold !== undefined
-          ? activeRules.croppingEdgeDensityThreshold
+          ? Number(activeRules.croppingEdgeDensityThreshold)
           : 0.10;
 
       // Check 4 boundary strips: top, bottom, left, right
@@ -364,10 +365,16 @@ class QualityAnalyzer {
       const rightRoi = edgesMat.roi(rightRect);
       roiMats.push(rightRoi);
 
-      const topDensity = cv.countNonZero(topRoi) / (width * borderMarginY);
-      const bottomDensity = cv.countNonZero(bottomRoi) / (width * borderMarginY);
-      const leftDensity = cv.countNonZero(leftRoi) / (borderMarginX * height);
-      const rightDensity = cv.countNonZero(rightRoi) / (borderMarginX * height);
+      const topDensity = Number(cv.countNonZero(topRoi)) / Number(width * borderMarginY);
+      const bottomDensity = Number(cv.countNonZero(bottomRoi)) / Number(width * borderMarginY);
+      const leftDensity = Number(cv.countNonZero(leftRoi)) / Number(borderMarginX * height);
+      const rightDensity = Number(cv.countNonZero(rightRoi)) / Number(borderMarginX * height);
+
+      // Clean up rect wrappers immediately after use
+      try { topRect.delete(); } catch (e) {}
+      try { bottomRect.delete(); } catch (e) {}
+      try { leftRect.delete(); } catch (e) {}
+      try { rightRect.delete(); } catch (e) {}
 
       const maxBorderDensity = Math.max(topDensity, bottomDensity, leftDensity, rightDensity);
       if (maxBorderDensity > croppingDensityThreshold) {

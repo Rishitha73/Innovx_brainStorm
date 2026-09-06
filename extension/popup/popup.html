@@ -121,6 +121,121 @@
             </div>
           </div>
 
+          <!-- Phase 6: Document OCR Card -->
+          <div class="ocr-section" id="ocr-section" style="display: none;">
+            <div class="section-header">
+              <span>🔤 Document OCR</span>
+              <span class="ocr-status-badge" id="ocr-status-badge">NOT RUN</span>
+            </div>
+            
+            <div class="ocr-card" id="ocr-card">
+              <div id="ocr-processing" class="ocr-processing-text" style="display: none;">
+                <span class="pulse-dot"></span> Extracting document text (Tesseract.js)...
+              </div>
+
+              <div id="ocr-content-block" style="display: none;">
+                <div class="ocr-meta-row">
+                  <span class="ocr-meta-label">Recognition Confidence:</span>
+                  <span class="ocr-confidence-pill" id="ocr-confidence-val">0%</span>
+                </div>
+
+                <div class="ocr-text-header">
+                  <span>Extracted Text</span>
+                  <span class="ocr-raw-tag">RAW OCR OUTPUT</span>
+                </div>
+                <div class="ocr-text-box" id="ocr-text-display">
+                  (No text extracted)
+                </div>
+
+                <div class="ocr-failure-box" id="ocr-failure-box" style="display: none;">
+                  <div class="ocr-failure-line" id="ocr-failure-line">❌ OCR Error</div>
+                  <div class="ocr-reasons-list" id="ocr-reasons-list"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Phase 7: Cross-Verification Card -->
+          <div class="verification-section" id="verification-section" style="display: none;">
+            <div class="section-header">
+              <span>⚖️ Cross-Verification</span>
+              <span class="verification-status-badge" id="verification-overall-badge">NOT RUN</span>
+            </div>
+            
+            <div class="verification-card" id="verification-card">
+              <div id="verif-processing" class="verif-processing-text" style="display: none;">
+                <span class="pulse-dot"></span> Comparing form values with document OCR...
+              </div>
+
+              <div id="verif-content-block" style="display: none;">
+                <div class="verif-overall-box" id="verif-overall-box">
+                  <span class="verif-overall-title">OVERALL RESULT:</span>
+                  <span class="verif-overall-tag" id="verif-overall-text">MATCH</span>
+                </div>
+
+                <!-- Field 1: Name -->
+                <div class="verif-field-card" id="verif-field-name">
+                  <div class="verif-field-header">
+                    <span class="verif-field-name">Full Name</span>
+                    <span class="verif-pill" id="verif-status-name">MATCH</span>
+                  </div>
+                  <div class="verif-compare-grid">
+                    <div class="verif-compare-col">
+                      <span class="verif-val-label">Form Input:</span>
+                      <span class="verif-val-box" id="verif-form-name">-</span>
+                    </div>
+                    <div class="verif-compare-col">
+                      <span class="verif-val-label">Document (OCR):</span>
+                      <span class="verif-val-box" id="verif-doc-name">-</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Field 2: Date of Birth -->
+                <div class="verif-field-card" id="verif-field-dob">
+                  <div class="verif-field-header">
+                    <span class="verif-field-name">Date of Birth</span>
+                    <span class="verif-pill" id="verif-status-dob">MATCH</span>
+                  </div>
+                  <div class="verif-compare-grid">
+                    <div class="verif-compare-col">
+                      <span class="verif-val-label">Form Input:</span>
+                      <span class="verif-val-box" id="verif-form-dob">-</span>
+                    </div>
+                    <div class="verif-compare-col">
+                      <span class="verif-val-label">Document (OCR):</span>
+                      <span class="verif-val-box" id="verif-doc-dob">-</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Field 3: Certificate Number -->
+                <div class="verif-field-card" id="verif-field-cert">
+                  <div class="verif-field-header">
+                    <span class="verif-field-name">Certificate Number</span>
+                    <span class="verif-pill" id="verif-status-cert">MATCH</span>
+                  </div>
+                  <div class="verif-compare-grid">
+                    <div class="verif-compare-col">
+                      <span class="verif-val-label">Form Input:</span>
+                      <span class="verif-val-box" id="verif-form-cert">-</span>
+                    </div>
+                    <div class="verif-compare-col">
+                      <span class="verif-val-label">Document (OCR):</span>
+                      <span class="verif-val-box" id="verif-doc-cert">-</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Reasons / Mismatch Callouts -->
+                <div class="verif-reasons-box" id="verif-reasons-box" style="display: none;">
+                  <div class="verif-reasons-title" id="verif-reasons-title">Discrepancy Details:</div>
+                  <div class="verif-reasons-list" id="verif-reasons-list"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Phase 3: Live Form State -->
           <div class="form-data-section">
             <div class="section-header">
@@ -182,11 +297,17 @@
       </main>
 
       <footer class="popup-footer">
-        <span>Phase 5 — Document Quality Analysis Active</span>
+        <span>Phase 7 — Cross-Verification Active</span>
       </footer>
     </div>
-    <!-- Include portal config for standalone fallback matching -->
+    <!-- Include portal config, schemas, and validators for standalone fallback matching -->
     <script src="../config/portalConfig.js"></script>
+    <script src="../schemas/schemaUtils.js"></script>
+    <script src="../schemas/incomeCertificateSchema.js"></script>
+    <script src="../schemas/communityCertificateSchema.js"></script>
+    <script src="../schemas/residenceCertificateSchema.js"></script>
+    <script src="../schemas/index.js"></script>
+    <script src="../validators/crossVerifier.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

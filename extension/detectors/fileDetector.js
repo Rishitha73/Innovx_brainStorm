@@ -1,8 +1,8 @@
-// Pre-Submission Error Guard - File Detector (Phase 4 & Phase 5)
-// Observes file upload input and coordinates client-side file validation and visual quality analysis
+// Pre-Submission Error Guard - File Detector (Phase 4, Phase 5 & Phase 6)
+// Observes file upload input and coordinates client-side file validation, quality analysis, and OCR
 
 class FileDetector {
-  constructor(portalConfig, fileValidator, qualityAnalyzer) {
+  constructor(portalConfig, fileValidator, qualityAnalyzer, ocrEngine) {
     this.portalConfig = portalConfig;
     this.validator =
       fileValidator ||
@@ -20,6 +20,14 @@ class FileDetector {
         ? new globalThis.QualityAnalyzer()
         : null);
 
+    this.ocrEngine =
+      ocrEngine ||
+      (typeof OcrEngine === 'function'
+        ? new OcrEngine()
+        : globalThis.OcrEngine
+        ? new globalThis.OcrEngine()
+        : null);
+
     this.fileState = {
       file: null,
       fileValidation: {
@@ -35,6 +43,12 @@ class FileDetector {
         croppingOk: null,
         passed: null,
         reasons: []
+      },
+      ocr: {
+        status: 'not_run',
+        text: '',
+        confidence: 0,
+        reasons: []
       }
     };
     this.currentFileRef = null;
@@ -44,6 +58,10 @@ class FileDetector {
 
   setQualityAnalyzer(qa) {
     this.qualityAnalyzer = qa;
+  }
+
+  setOcrEngine(ocr) {
+    this.ocrEngine = ocr;
   }
 
   initialize() {
@@ -63,6 +81,12 @@ class FileDetector {
         croppingOk: null,
         passed: null,
         reasons: []
+      },
+      ocr: {
+        status: 'not_run',
+        text: '',
+        confidence: 0,
+        reasons: []
       }
     };
     this.currentFileRef = null;
@@ -75,6 +99,13 @@ class FileDetector {
     const doc = (typeof document !== 'undefined') ? document : (typeof globalThis !== 'undefined' ? globalThis.document : null);
 
     const handleFileSelection = async (event) => {
+      if (event && event._guardHandled) {
+        return;
+      }
+      if (event) {
+        event._guardHandled = true;
+      }
+
       const target = event?.target || (doc ? doc.querySelector(uploadSelector) : null);
       const files = target ? target.files : null;
       const file = files && files[0] ? files[0] : null;
@@ -94,6 +125,12 @@ class FileDetector {
             contrastOk: null,
             croppingOk: null,
             passed: null,
+            reasons: []
+          },
+          ocr: {
+            status: 'not_run',
+            text: '',
+            confidence: 0,
             reasons: []
           }
         };
@@ -138,6 +175,15 @@ class FileDetector {
     if (doc) {
       doc.addEventListener('change', delegatedChangeHandler, true);
       this.listeners.push({ element: doc, handler: delegatedChangeHandler, event: 'change', capture: true });
+
+      // Track clicks (e.g. Remove file button or preset triggers)
+      const delegatedClickHandler = () => {
+        setTimeout(() => {
+          this.syncWithDom().catch(() => {});
+        }, 25);
+      };
+      doc.addEventListener('click', delegatedClickHandler, true);
+      this.listeners.push({ element: doc, handler: delegatedClickHandler, event: 'click', capture: true });
     }
 
     return this.fileState;
@@ -147,6 +193,17 @@ class FileDetector {
     if (!this.validator) {
       return;
     }
+
+    this.activeOcrJobId = (this.activeOcrJobId || 0) + 1;
+    const currentJobId = this.activeOcrJobId;
+
+    // Reset OCR and quality state on every new file processing
+    this.fileState.ocr = {
+      status: 'not_run',
+      text: '',
+      confidence: 0,
+      reasons: []
+    };
 
     // 1. File Validator (Phase 4)
     const valResult = await this.validator.validate(file);
@@ -168,13 +225,21 @@ class FileDetector {
         passed: null,
         reasons: []
       };
+      this.fileState.ocr = {
+        status: 'not_run',
+        text: '',
+        confidence: 0,
+        reasons: []
+      };
       this.notifySubscribers();
       return;
     }
 
     console.log(`[File Detector] ✓ File validation PASSED for: ${file.name}`);
+    this.notifySubscribers();
 
     // 2. Document Quality Analysis (Phase 5)
+    let rasterizedData = null;
     if (this.qualityAnalyzer) {
       this.fileState.quality = {
         status: 'processing',
@@ -226,8 +291,69 @@ class FileDetector {
         reasons: []
       };
     }
-
     this.notifySubscribers();
+
+    // 3. OCR Pipeline (Phase 6)
+    if (this.ocrEngine) {
+      this.fileState.ocr = {
+        status: 'processing',
+        text: '',
+        confidence: 0,
+        reasons: []
+      };
+      this.notifySubscribers();
+
+      try {
+        // Rasterize document page to Canvas / ImageData for OCR
+        let ocrInput = file;
+        if (this.qualityAnalyzer) {
+          const name = (file.name || '').toLowerCase();
+          const isPdf = name.endsWith('.pdf') || (file.type || '').includes('pdf');
+          try {
+            const raster = isPdf
+              ? await this.qualityAnalyzer.rasterizePdf(file)
+              : await this.qualityAnalyzer.rasterizeImage(file);
+            if (raster && (raster.canvas || raster.imageData)) {
+              ocrInput = raster.canvas || raster.imageData;
+            }
+          } catch (rErr) {
+            console.warn('[File Detector] Document rasterization error before OCR:', rErr);
+          }
+        }
+
+        const ocrResult = await this.ocrEngine.recognize(ocrInput);
+        if (this.activeOcrJobId !== currentJobId) {
+          console.log(`[File Detector] Discarding stale OCR result from job ${currentJobId} (current: ${this.activeOcrJobId})`);
+          return;
+        }
+
+        this.fileState.ocr = {
+          status: ocrResult.status || 'succeeded',
+          text: ocrResult.text || '',
+          confidence: ocrResult.confidence || 0,
+          reasons: ocrResult.reasons || []
+        };
+        console.log(`[File Detector] OCR complete: ${ocrResult.status} (confidence: ${ocrResult.confidence}%)`);
+      } catch (ocrErr) {
+        if (this.activeOcrJobId !== currentJobId) return;
+        console.error('[File Detector] Unexpected error during OCR:', ocrErr);
+        this.fileState.ocr = {
+          status: 'failed',
+          text: '',
+          confidence: 0,
+          reasons: [`OCR recognition error: ${ocrErr.message}`]
+        };
+      }
+      this.notifySubscribers();
+    } else {
+      this.fileState.ocr = {
+        status: 'not_run',
+        text: '',
+        confidence: 0,
+        reasons: []
+      };
+      this.notifySubscribers();
+    }
   }
 
   // Synchronizes state with DOM (invoked before answering popup queries)
@@ -253,6 +379,12 @@ class FileDetector {
             contrastOk: null,
             croppingOk: null,
             passed: null,
+            reasons: []
+          },
+          ocr: {
+            status: 'not_run',
+            text: '',
+            confidence: 0,
             reasons: []
           }
         };
@@ -304,6 +436,12 @@ class FileDetector {
         croppingOk: this.fileState.quality.croppingOk,
         passed: this.fileState.quality.passed,
         reasons: [...this.fileState.quality.reasons]
+      },
+      ocr: {
+        status: this.fileState.ocr.status,
+        text: this.fileState.ocr.text,
+        confidence: this.fileState.ocr.confidence,
+        reasons: [...this.fileState.ocr.reasons]
       }
     };
   }

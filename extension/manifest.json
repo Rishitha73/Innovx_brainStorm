@@ -5,8 +5,12 @@
   "description": "Client-side pre-submission error guard for official forms and scholarship applications.",
   "permissions": [
     "activeTab",
-    "scripting"
+    "scripting",
+    "offscreen"
   ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+  },
   "background": {
     "service_worker": "background.js"
   },
@@ -17,9 +21,17 @@
       ],
       "js": [
         "lib/opencv.js",
+        "lib/tesseract.min.js",
         "config/portalConfig.js",
+        "schemas/schemaUtils.js",
+        "schemas/incomeCertificateSchema.js",
+        "schemas/communityCertificateSchema.js",
+        "schemas/residenceCertificateSchema.js",
+        "schemas/index.js",
         "validators/fileValidator.js",
+        "validators/crossVerifier.js",
         "analyzers/qualityAnalyzer.js",
+        "ocr/ocrEngine.js",
         "detectors/formDetector.js",
         "detectors/fileDetector.js",
         "content.js"
@@ -30,7 +42,9 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "lib/*"
+        "lib/*",
+        "lib/tessdata/*",
+        "offscreen/*"
       ],
       "matches": [
         "<all_urls>"

@@ -47,6 +47,35 @@ document.addEventListener('DOMContentLoaded', () => {
   const qualityResultLine = document.getElementById('quality-result-line');
   const qualityReasonsList = document.getElementById('quality-reasons-list');
 
+  // Document OCR Elements (Phase 6)
+  const ocrSection = document.getElementById('ocr-section');
+  const ocrStatusBadge = document.getElementById('ocr-status-badge');
+  const ocrProcessing = document.getElementById('ocr-processing');
+  const ocrContentBlock = document.getElementById('ocr-content-block');
+  const ocrConfidenceVal = document.getElementById('ocr-confidence-val');
+  const ocrTextDisplay = document.getElementById('ocr-text-display');
+  const ocrFailureBox = document.getElementById('ocr-failure-box');
+  const ocrReasonsList = document.getElementById('ocr-reasons-list');
+
+  // Cross-Verification Elements (Phase 7)
+  const verificationSection = document.getElementById('verification-section');
+  const verificationOverallBadge = document.getElementById('verification-overall-badge');
+  const verifProcessing = document.getElementById('verif-processing');
+  const verifContentBlock = document.getElementById('verif-content-block');
+  const verifOverallBox = document.getElementById('verif-overall-box');
+  const verifOverallText = document.getElementById('verif-overall-text');
+  const verifStatusName = document.getElementById('verif-status-name');
+  const verifFormName = document.getElementById('verif-form-name');
+  const verifDocName = document.getElementById('verif-doc-name');
+  const verifStatusDob = document.getElementById('verif-status-dob');
+  const verifFormDob = document.getElementById('verif-form-dob');
+  const verifDocDob = document.getElementById('verif-doc-dob');
+  const verifStatusCert = document.getElementById('verif-status-cert');
+  const verifFormCert = document.getElementById('verif-form-cert');
+  const verifDocCert = document.getElementById('verif-doc-cert');
+  const verifReasonsBox = document.getElementById('verif-reasons-box');
+  const verifReasonsList = document.getElementById('verif-reasons-list');
+
   function showLoading() {
     loadingEl.style.display = 'flex';
     activeEl.style.display = 'none';
@@ -63,10 +92,16 @@ document.addEventListener('DOMContentLoaded', () => {
     portalNameDisplay.textContent = portalId;
 
     // 1. Phase 3: Populate Live Form Values
-    const fields = status.formFields || {};
-    const nameVal = fields.name ? fields.name.value : '';
-    const dobVal = fields.dob ? fields.dob.value : '';
-    const certVal = fields.certificateNumber ? fields.certificateNumber.value : '';
+    const fields = status.formFields || status.form || {};
+    const extractVal = (field) => {
+      if (!field) return '';
+      if (typeof field === 'object' && field.value !== undefined) return field.value;
+      if (typeof field === 'string') return field;
+      return String(field);
+    };
+    const nameVal = extractVal(fields.name);
+    const dobVal = extractVal(fields.dob);
+    const certVal = extractVal(fields.certificateNumber || fields.certNumber);
 
     if (valNameEl) {
       valNameEl.textContent = nameVal || '(empty)';
@@ -251,7 +286,182 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // 4. Selectors list
+    // 4. Phase 6: Populate Document OCR Status
+    if (ocrSection) {
+      if (!filePassed || !doc || !doc.ocr || doc.ocr.status === 'not_run') {
+        ocrSection.style.display = 'none';
+      } else {
+        ocrSection.style.display = 'block';
+        const ocrState = doc.ocr;
+
+        if (ocrState.status === 'processing') {
+          if (ocrProcessing) ocrProcessing.style.display = 'flex';
+          if (ocrContentBlock) ocrContentBlock.style.display = 'none';
+          if (ocrStatusBadge) {
+            ocrStatusBadge.textContent = 'RECOGNIZING...';
+            ocrStatusBadge.className = 'ocr-status-badge processing';
+          }
+        } else if (ocrState.status === 'succeeded') {
+          if (ocrProcessing) ocrProcessing.style.display = 'none';
+          if (ocrContentBlock) ocrContentBlock.style.display = 'block';
+          if (ocrStatusBadge) {
+            ocrStatusBadge.textContent = 'SUCCEEDED';
+            ocrStatusBadge.className = 'ocr-status-badge succeeded';
+          }
+
+          // Confidence Pill
+          const conf = typeof ocrState.confidence === 'number' ? Math.round(ocrState.confidence) : 0;
+          if (ocrConfidenceVal) {
+            ocrConfidenceVal.textContent = `${conf}%`;
+            if (conf >= 75) {
+              ocrConfidenceVal.className = 'ocr-confidence-pill high';
+            } else if (conf >= 50) {
+              ocrConfidenceVal.className = 'ocr-confidence-pill medium';
+            } else {
+              ocrConfidenceVal.className = 'ocr-confidence-pill low';
+            }
+          }
+
+          // Extracted Text
+          if (ocrTextDisplay) {
+            ocrTextDisplay.textContent = ocrState.text && ocrState.text.trim()
+              ? ocrState.text
+              : '(No text detected in document)';
+          }
+
+          // OCR Warnings (e.g. low confidence warning)
+          if (ocrFailureBox && ocrReasonsList) {
+            if (ocrState.reasons && ocrState.reasons.length > 0) {
+              ocrFailureBox.style.display = 'block';
+              ocrReasonsList.innerHTML = '';
+              ocrState.reasons.forEach((r) => {
+                const item = document.createElement('div');
+                item.textContent = r;
+                ocrReasonsList.appendChild(item);
+              });
+            } else {
+              ocrFailureBox.style.display = 'none';
+            }
+          }
+        } else if (ocrState.status === 'failed') {
+          if (ocrProcessing) ocrProcessing.style.display = 'none';
+          if (ocrContentBlock) ocrContentBlock.style.display = 'block';
+          if (ocrStatusBadge) {
+            ocrStatusBadge.textContent = 'FAILED';
+            ocrStatusBadge.className = 'ocr-status-badge failed';
+          }
+          if (ocrConfidenceVal) {
+            ocrConfidenceVal.textContent = '0%';
+            ocrConfidenceVal.className = 'ocr-confidence-pill low';
+          }
+          if (ocrTextDisplay) {
+            ocrTextDisplay.textContent = '(OCR processing failed)';
+          }
+          if (ocrFailureBox && ocrReasonsList) {
+            ocrFailureBox.style.display = 'block';
+            ocrReasonsList.innerHTML = '';
+            (ocrState.reasons || ['Could not extract text from document.']).forEach((r) => {
+              const item = document.createElement('div');
+              item.textContent = r;
+              ocrReasonsList.appendChild(item);
+            });
+          }
+        }
+      }
+    }
+
+    // 5. Phase 7: Populate Cross-Verification Status
+    if (verificationSection) {
+      const verif = status.verification;
+      const isDocPresent = Boolean(doc && doc.file);
+      const isOcrProcessing = Boolean(doc && doc.ocr && doc.ocr.status === 'processing');
+      const isOcrDone = Boolean(doc && doc.ocr && (doc.ocr.status === 'succeeded' || doc.ocr.status === 'failed'));
+      const isVerifActive = Boolean(verif && (verif.status === 'completed' || verif.status === 'processing' || isOcrDone));
+
+      if (!filePassed || !isDocPresent || !isVerifActive) {
+        verificationSection.style.display = 'none';
+      } else {
+        verificationSection.style.display = 'block';
+
+        if (verif.status === 'processing' || isOcrProcessing) {
+          if (verifProcessing) verifProcessing.style.display = 'flex';
+          if (verifContentBlock) verifContentBlock.style.display = 'none';
+          if (verificationOverallBadge) {
+            verificationOverallBadge.textContent = 'VERIFYING...';
+            verificationOverallBadge.className = 'verification-status-badge processing';
+          }
+        } else {
+          if (verifProcessing) verifProcessing.style.display = 'none';
+          if (verifContentBlock) verifContentBlock.style.display = 'block';
+
+          // Overall Status
+          const overall = verif.overallStatus || 'NEEDS_REVIEW';
+          const overallClass = overall.toLowerCase();
+          const overallLabel = overall === 'NEEDS_REVIEW' ? 'NEEDS REVIEW' : overall;
+
+          if (verificationOverallBadge) {
+            verificationOverallBadge.textContent = overallLabel;
+            verificationOverallBadge.className = `verification-status-badge ${overallClass}`;
+          }
+          if (verifOverallBox) {
+            verifOverallBox.className = `verif-overall-box ${overallClass}`;
+          }
+          if (verifOverallText) {
+            verifOverallText.textContent = overallLabel;
+          }
+
+          const vf = verif.fields || {};
+
+          // Field 1: Name
+          const nameF = vf.name || {};
+          if (verifFormName) verifFormName.textContent = nameF.formValue || '(empty)';
+          if (verifDocName) verifDocName.textContent = nameF.documentValue || 'Not found';
+          if (verifStatusName) {
+            const nStatus = nameF.status || 'NEEDS_REVIEW';
+            verifStatusName.textContent = nStatus === 'NEEDS_REVIEW' ? 'NEEDS REVIEW' : nStatus;
+            verifStatusName.className = `verif-pill ${nStatus.toLowerCase()}`;
+          }
+
+          // Field 2: Date of Birth
+          const dobF = vf.dob || {};
+          if (verifFormDob) verifFormDob.textContent = dobF.formValue || '(empty)';
+          if (verifDocDob) verifDocDob.textContent = dobF.documentValue || 'Not found';
+          if (verifStatusDob) {
+            const dStatus = dobF.status || 'NEEDS_REVIEW';
+            verifStatusDob.textContent = dStatus === 'NEEDS_REVIEW' ? 'NEEDS REVIEW' : dStatus;
+            verifStatusDob.className = `verif-pill ${dStatus.toLowerCase()}`;
+          }
+
+          // Field 3: Certificate Number
+          const certF = vf.certificateNumber || {};
+          if (verifFormCert) verifFormCert.textContent = certF.formValue || '(empty)';
+          if (verifDocCert) verifDocCert.textContent = certF.documentValue || 'Not found';
+          if (verifStatusCert) {
+            const cStatus = certF.status || 'NEEDS_REVIEW';
+            verifStatusCert.textContent = cStatus === 'NEEDS_REVIEW' ? 'NEEDS REVIEW' : cStatus;
+            verifStatusCert.className = `verif-pill ${cStatus.toLowerCase()}`;
+          }
+
+          // Reasons / Mismatch Callouts
+          const verifReasons = verif.reasons || [];
+          if (verifReasonsBox && verifReasonsList) {
+            if (verifReasons.length > 0) {
+              verifReasonsBox.style.display = 'block';
+              verifReasonsList.innerHTML = '';
+              verifReasons.forEach((r) => {
+                const item = document.createElement('div');
+                item.textContent = r;
+                verifReasonsList.appendChild(item);
+              });
+            } else {
+              verifReasonsBox.style.display = 'none';
+            }
+          }
+        }
+      }
+    }
+
+    // 6. Selectors list
     const totalSelectors = status.selectors ? status.selectors.length : 0;
     const foundCount = status.foundCount || 0;
     if (selectorCountBadge) selectorCountBadge.textContent = `${foundCount} / ${totalSelectors}`;
@@ -297,17 +507,8 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    const activeTab = tabs && tabs[0];
-    if (!activeTab || !activeTab.id) {
-      renderInactive('No active tab detected.');
-      return;
-    }
-
-    const tabUrl = activeTab.url || '';
-
-    // Primary: Request live document and form state from content script
-    chrome.tabs.sendMessage(activeTab.id, { type: 'GET_DOCUMENT_STATE' }, (response) => {
+  function refreshPopupState(tabId, tabUrl) {
+    chrome.tabs.sendMessage(tabId, { type: 'GET_DOCUMENT_STATE' }, (response) => {
       if (!chrome.runtime.lastError && response) {
         if (response.active) {
           renderActive(response);
@@ -316,7 +517,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } else {
         // Secondary: Ask background service worker for cached tab state
-        chrome.runtime.sendMessage({ type: 'GET_TAB_STATUS', tabId: activeTab.id }, (bgResponse) => {
+        chrome.runtime.sendMessage({ type: 'GET_TAB_STATUS', tabId }, (bgResponse) => {
           if (!chrome.runtime.lastError && bgResponse && bgResponse.active) {
             renderActive(bgResponse);
           } else {
@@ -339,7 +540,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 document: {
                   file: null,
                   fileValidation: { passed: false, reasons: [] },
-                  quality: { status: 'not_run', blurScore: null, resolutionOk: null, brightnessOk: null, contrastOk: null, croppingOk: null, passed: null, reasons: [] }
+                  quality: { status: 'not_run', blurScore: null, resolutionOk: null, brightnessOk: null, contrastOk: null, croppingOk: null, passed: null, reasons: [] },
+                  ocr: { status: 'not_run', text: '', confidence: 0, reasons: [] }
+                },
+                verification: {
+                  status: 'idle',
+                  overallStatus: null,
+                  fields: {
+                    name: { field: 'name', strategy: 'fuzzyNormalized', formValue: '', documentValue: null, status: 'NEEDS_REVIEW', score: null, reason: 'No file uploaded' },
+                    dob: { field: 'dob', strategy: 'exactNormalizedDate', formValue: '', documentValue: null, status: 'NEEDS_REVIEW', reason: 'No file uploaded' },
+                    certificateNumber: { field: 'certificateNumber', strategy: 'exactNormalizedString', formValue: '', documentValue: null, status: 'NEEDS_REVIEW', reason: 'No file uploaded' }
+                  },
+                  extractedFields: { name: null, dob: null, certificateNumber: null },
+                  reasons: []
                 }
               });
             } else {
@@ -347,6 +560,24 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           }
         });
+      }
+    });
+  }
+
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const activeTab = tabs && tabs[0];
+    if (!activeTab || !activeTab.id) {
+      renderInactive('No active tab detected.');
+      return;
+    }
+
+    const tabUrl = activeTab.url || '';
+    refreshPopupState(activeTab.id, tabUrl);
+
+    // Listen for live updates from content script while popup is open
+    chrome.runtime.onMessage.addListener((msg) => {
+      if (msg && (msg.type === 'FORM_FIELD_CHANGED' || msg.type === 'FILE_VALIDATED' || msg.type === 'CONTENT_SCRIPT_LOADED')) {
+        refreshPopupState(activeTab.id, tabUrl);
       }
     });
   });

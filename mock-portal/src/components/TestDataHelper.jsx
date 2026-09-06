@@ -66,6 +66,48 @@ export default function TestDataHelper({ onApplyPreset, onReset }) {
       ctx.strokeStyle = '#1e3a8a';
       ctx.lineWidth = 4;
       ctx.strokeRect(60, 40, width - 120, height - 80);
+    } else if (sampleType === 'mismatch') {
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 28px sans-serif';
+      ctx.fillText('GOVERNMENT OF STATE - INCOME CERTIFICATE', 120, 100);
+      ctx.font = '20px sans-serif';
+      ctx.fillText('Certificate No: INC-2024-99999', 120, 160);
+      ctx.fillText('Applicant Name: Priya Verma', 120, 220);
+      ctx.fillText('Date of Birth: 15-08-2003', 120, 280);
+      ctx.fillText('Annual Income: Rs. 1,50,000 /-', 120, 340);
+      ctx.fillText('Issuing Authority: Revenue Officer, North District', 120, 400);
+      ctx.strokeStyle = '#991b1b';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(60, 40, width - 120, height - 80);
+    } else if (sampleType === 'unrelated') {
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 26px sans-serif';
+      ctx.fillText('UNIDENTIFIED PUBLIC NOTICE / GENERAL MEMO', 120, 140);
+      ctx.font = '18px sans-serif';
+      ctx.fillText('This document contains official guidelines for portal submissions.', 120, 220);
+      ctx.fillText('Annual Budget Estimate: Rs. 50,00,000', 120, 280);
+      ctx.fillText('No applicant identification data is recorded here.', 120, 340);
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(60, 40, width - 120, height - 80);
+    } else if (sampleType === 'dob-mismatch') {
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 28px sans-serif';
+      ctx.fillText('GOVERNMENT OF STATE - INCOME CERTIFICATE', 120, 100);
+      ctx.font = '20px sans-serif';
+      ctx.fillText('Certificate No: INC-2024-98741', 120, 160);
+      ctx.fillText('Applicant Name: Rohan Sharma', 120, 220);
+      ctx.fillText('Date of Birth: 25-12-2004', 120, 280);
+      ctx.fillText('Annual Income: Rs. 1,20,000 /-', 120, 340);
+      ctx.strokeStyle = '#c2410c';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(60, 40, width - 120, height - 80);
     } else if (sampleType === 'blurry') {
       ctx.fillStyle = '#e2e8f0';
       ctx.fillRect(0, 0, width, height);
@@ -122,7 +164,7 @@ export default function TestDataHelper({ onApplyPreset, onReset }) {
           <span>⚡</span>
           <span>Quick Test Presets (Mock Development Data)</span>
         </div>
-        <span className="test-preset-tag">Phase 5 Ready</span>
+        <span className="test-preset-tag">Phase 7/8 Ready</span>
       </div>
 
       <div className="preset-buttons-grid">
@@ -149,18 +191,53 @@ export default function TestDataHelper({ onApplyPreset, onReset }) {
 
       <div style={{ marginTop: '12px', borderTop: '1px dashed var(--color-border)', paddingTop: '10px' }}>
         <div style={{ fontSize: '0.76rem', fontWeight: '700', color: 'var(--color-text-secondary)', marginBottom: '8px' }}>
-          <span>🧪 Phase 5 Document Quality Fixtures:</span>
+          <span>⚖️ Phase 7/8 Cross-Verification & OCR Fixtures:</span>
         </div>
         <div className="preset-buttons-grid">
           <button
             type="button"
             id="btn-sample-good"
             className="preset-btn"
-            onClick={() => attachSampleDocument('good', 'income_certificate_good.png')}
-            title="Attach a high-resolution, clear, sharp document"
+            onClick={() => attachSampleDocument('good', 'income_certificate_matching.png')}
+            title="Attach matching Income Certificate (Rohan Sharma, 15-08-2003, INC-2024-98741)"
           >
-            <span>📄</span> Good Doc (Pass)
+            <span>✅</span> Matching Doc (MATCH)
           </button>
+          <button
+            type="button"
+            id="btn-sample-mismatch"
+            className="preset-btn"
+            onClick={() => attachSampleDocument('mismatch', 'income_certificate_mismatch.png')}
+            title="Attach mismatching document (Priya Verma, INC-2024-99999)"
+          >
+            <span>❌</span> Mismatch Doc (MISMATCH)
+          </button>
+          <button
+            type="button"
+            id="btn-sample-unrelated"
+            className="preset-btn"
+            onClick={() => attachSampleDocument('unrelated', 'unrelated_document_scan.png')}
+            title="Attach document with none of the expected fields (NEEDS REVIEW)"
+          >
+            <span>⚠️</span> Unrelated Doc (NEEDS REVIEW)
+          </button>
+          <button
+            type="button"
+            id="btn-sample-dob-mismatch"
+            className="preset-btn"
+            onClick={() => attachSampleDocument('dob-mismatch', 'dob_mismatch_certificate.png')}
+            title="Attach document with DOB mismatch (25-12-2004)"
+          >
+            <span>📅</span> DOB Mismatch
+          </button>
+        </div>
+      </div>
+
+      <div style={{ marginTop: '10px', borderTop: '1px dashed var(--color-border)', paddingTop: '8px' }}>
+        <div style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--color-text-secondary)', marginBottom: '6px' }}>
+          <span>🔍 Phase 5 Document Quality Fixtures:</span>
+        </div>
+        <div className="preset-buttons-grid">
           <button
             type="button"
             id="btn-sample-blurry"
@@ -168,7 +245,7 @@ export default function TestDataHelper({ onApplyPreset, onReset }) {
             onClick={() => attachSampleDocument('blurry', 'blurry_scan.png')}
             title="Attach a blurry scan"
           >
-            <span>🌫️</span> Blurry Doc (Fail)
+            <span>🌫️</span> Blurry Doc
           </button>
           <button
             type="button"
@@ -177,7 +254,7 @@ export default function TestDataHelper({ onApplyPreset, onReset }) {
             onClick={() => attachSampleDocument('low-res', 'low_resolution_300px.png')}
             title="Attach a low-resolution image (<800px)"
           >
-            <span>🔍</span> Low-Res Doc (Fail)
+            <span>🔍</span> Low-Res Doc
           </button>
           <button
             type="button"
@@ -186,7 +263,7 @@ export default function TestDataHelper({ onApplyPreset, onReset }) {
             onClick={() => attachSampleDocument('dark', 'dark_underexposed.png')}
             title="Attach a very dark scan"
           >
-            <span>🌑</span> Dark Doc (Fail)
+            <span>🌑</span> Dark Doc
           </button>
           <button
             type="button"
@@ -195,7 +272,7 @@ export default function TestDataHelper({ onApplyPreset, onReset }) {
             onClick={() => attachSampleDocument('cropped', 'cropped_edge_scan.png')}
             title="Attach a document with text touching page edge"
           >
-            <span>✂️</span> Cropped Doc (Warn)
+            <span>✂️</span> Cropped Doc
           </button>
         </div>
       </div>

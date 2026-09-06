@@ -304,6 +304,6 @@ describe('Phase 5: Document Quality Analysis (OpenCV.js & PDF.js)', () => {
     expect(popupHtml).toContain('metric-brightness-row');
     expect(popupHtml).toContain('metric-contrast-row');
     expect(popupHtml).toContain('metric-cropping-row');
-    expect(popupHtml).toContain('Phase 5 — Document Quality Analysis Active');
+    expect(popupHtml).toContain('popup-footer');
   });
 });

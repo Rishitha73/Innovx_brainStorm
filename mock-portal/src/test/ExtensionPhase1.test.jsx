@@ -46,7 +46,7 @@ describe('Phase 1: Basic Browser Extension Structure & Manifest V3 Validation', 
     expect(manifest.action.default_popup).toBe('popup/popup.html');
 
     // Minimum permissions only
-    expect(manifest.permissions).toEqual(['activeTab', 'scripting']);
+    expect(manifest.permissions).toEqual(['activeTab', 'scripting', 'offscreen']);
   });
 
   it('content.js contains required log and message dispatch to background', () => {
