@@ -97,9 +97,10 @@ describe('Phase 12 UX Refinement: Clean Form, Disabled Submit Button, & Floating
   });
 
   // =========================================================================
-  // 1. BLOCKING VALIDATION -> SUBMIT BUTTON DISABLED
   // =========================================================================
-  it('1. blocking validation ensures submit button is disabled', () => {
+  // 1. BLOCKING VALIDATION -> SUBMIT EVALUATION BLOCKED
+  // =========================================================================
+  it('1. blocking validation ensures submit evaluation is blocked', () => {
     const inPageUI = new InPageUI(mockPortalConfig);
     inPageUI.initialize();
 
@@ -116,8 +117,9 @@ describe('Phase 12 UX Refinement: Clean Form, Disabled Submit Button, & Floating
     });
     guard.attach(formElement);
 
-    expect(submitBtn.disabled).toBe(true);
-    expect(submitBtn.classList.contains('guard-submit-disabled')).toBe(true);
+    const decision = guard.evaluate(mockBlockedStatus);
+    expect(decision.allowed).toBe(false);
+    expect(decision.status).toBe('BLOCKED');
     guard.detach();
   });
 
@@ -152,15 +154,17 @@ describe('Phase 12 UX Refinement: Clean Form, Disabled Submit Button, & Floating
     });
     guard.attach(formElement);
 
+    const decision = guard.evaluate(mockPassStatus);
+    expect(decision.allowed).toBe(true);
     expect(submitBtn.disabled).toBe(false);
     expect(submitBtn.classList.contains('guard-submit-enabled')).toBe(true);
     guard.detach();
   });
 
   // =========================================================================
-  // 3. MISSING DOCUMENT -> SUBMIT DISABLED
+  // 3. MISSING DOCUMENT -> SUBMIT BLOCKED
   // =========================================================================
-  it('3. missing document keeps submit disabled', () => {
+  it('3. missing document keeps submit blocked', () => {
     const inPageUI = new InPageUI(mockPortalConfig);
     inPageUI.initialize();
 
@@ -176,14 +180,15 @@ describe('Phase 12 UX Refinement: Clean Form, Disabled Submit Button, & Floating
     });
     guard.attach(formElement);
 
-    expect(submitBtn.disabled).toBe(true);
+    const decision = guard.evaluate(mockStatus);
+    expect(decision.allowed).toBe(false);
     guard.detach();
   });
 
   // =========================================================================
-  // 4. MISMATCH -> SUBMIT DISABLED + POPUP SHOWN
+  // 4. MISMATCH -> SUBMIT BLOCKED + POPUP SHOWN
   // =========================================================================
-  it('4. field mismatch keeps submit disabled and renders actionable popup', () => {
+  it('4. field mismatch keeps submit blocked and renders actionable popup', () => {
     const inPageUI = new InPageUI(mockPortalConfig);
     inPageUI.initialize();
 
@@ -211,26 +216,25 @@ describe('Phase 12 UX Refinement: Clean Form, Disabled Submit Button, & Floating
     });
     guard.attach(formElement);
 
-    // Initial button state is disabled
-    expect(submitBtn.disabled).toBe(true);
+    const decision = guard.evaluate(mockMismatchStatus);
+    expect(decision.allowed).toBe(false);
 
     // Block submission / render
-    guard.blockSubmission(guard.evaluate(mockMismatchStatus));
+    guard.blockSubmission(decision);
 
     const popup = document.getElementById('guard-error-popup');
     expect(popup).not.toBeNull();
     expect(popup.textContent).toContain('Submission blocked');
     expect(popup.textContent).toContain('name on the certificate does not match');
     expect(popup.textContent).toContain('correct the name or upload');
-    expect(submitBtn.disabled).toBe(true);
 
     guard.detach();
   });
 
   // =========================================================================
-  // 5. NEEDS_REVIEW -> SUBMIT DISABLED + POPUP SHOWN
+  // 5. NEEDS_REVIEW -> SUBMIT BLOCKED + POPUP SHOWN
   // =========================================================================
-  it('5. NEEDS_REVIEW on required field keeps submit disabled and shows review guidance popup', () => {
+  it('5. NEEDS_REVIEW on required field keeps submit blocked and shows review guidance popup', () => {
     const inPageUI = new InPageUI(mockPortalConfig);
     inPageUI.initialize();
 
@@ -258,22 +262,23 @@ describe('Phase 12 UX Refinement: Clean Form, Disabled Submit Button, & Floating
     });
     guard.attach(formElement);
 
-    guard.blockSubmission(guard.evaluate(mockReviewStatus));
+    const decision = guard.evaluate(mockReviewStatus);
+    expect(decision.allowed).toBe(false);
+    guard.blockSubmission(decision);
 
     const popup = document.getElementById('guard-error-popup');
     expect(popup).not.toBeNull();
     expect(popup.textContent).toContain('Submission blocked');
     expect(popup.textContent).toContain('could not reliably read');
     expect(popup.textContent).toContain('clearer document');
-    expect(submitBtn.disabled).toBe(true);
 
     guard.detach();
   });
 
   // =========================================================================
-  // 6. OCR FAILURE -> SUBMIT DISABLED + POPUP SHOWN
+  // 6. OCR FAILURE -> SUBMIT BLOCKED + POPUP SHOWN
   // =========================================================================
-  it('6. OCR extraction failure keeps submit disabled and shows OCR error popup', () => {
+  it('6. OCR extraction failure keeps submit blocked and shows OCR error popup', () => {
     const inPageUI = new InPageUI(mockPortalConfig);
     inPageUI.initialize();
 
@@ -295,20 +300,21 @@ describe('Phase 12 UX Refinement: Clean Form, Disabled Submit Button, & Floating
     });
     guard.attach(formElement);
 
-    guard.blockSubmission(guard.evaluate(mockOcrFailStatus));
+    const decision = guard.evaluate(mockOcrFailStatus);
+    expect(decision.allowed).toBe(false);
+    guard.blockSubmission(decision);
 
     const popup = document.getElementById('guard-error-popup');
     expect(popup).not.toBeNull();
     expect(popup.textContent).toContain('could not read the uploaded certificate');
-    expect(submitBtn.disabled).toBe(true);
 
     guard.detach();
   });
 
   // =========================================================================
-  // 7. QUALITY FAILURE -> SUBMIT DISABLED + POPUP SHOWN
+  // 7. QUALITY FAILURE -> SUBMIT BLOCKED + POPUP SHOWN
   // =========================================================================
-  it('7. quality failure keeps submit disabled and displays visual quality popup', () => {
+  it('7. quality failure keeps submit blocked and displays visual quality popup', () => {
     const inPageUI = new InPageUI(mockPortalConfig);
     inPageUI.initialize();
 
@@ -330,20 +336,21 @@ describe('Phase 12 UX Refinement: Clean Form, Disabled Submit Button, & Floating
     });
     guard.attach(formElement);
 
-    guard.blockSubmission(guard.evaluate(mockQualityFailStatus));
+    const decision = guard.evaluate(mockQualityFailStatus);
+    expect(decision.allowed).toBe(false);
+    guard.blockSubmission(decision);
 
     const popup = document.getElementById('guard-error-popup');
     expect(popup).not.toBeNull();
     expect(popup.textContent).toContain('too blurry, dark, low-resolution, or cropped');
-    expect(submitBtn.disabled).toBe(true);
 
     guard.detach();
   });
 
   // =========================================================================
-  // 8. NO DOCUMENT TYPE -> SUBMIT DISABLED + POPUP SHOWN
+  // 8. NO DOCUMENT TYPE -> SUBMIT BLOCKED + POPUP SHOWN
   // =========================================================================
-  it('8. missing document type keeps submit disabled and shows document type popup', () => {
+  it('8. missing document type keeps submit blocked and shows document type popup', () => {
     const inPageUI = new InPageUI(mockPortalConfig);
     inPageUI.initialize();
 
@@ -360,20 +367,21 @@ describe('Phase 12 UX Refinement: Clean Form, Disabled Submit Button, & Floating
     });
     guard.attach(formElement);
 
-    guard.blockSubmission(guard.evaluate(mockNoTypeStatus));
+    const decision = guard.evaluate(mockNoTypeStatus);
+    expect(decision.allowed).toBe(false);
+    guard.blockSubmission(decision);
 
     const popup = document.getElementById('guard-error-popup');
     expect(popup).not.toBeNull();
     expect(popup.textContent).toContain('Please select the certificate type');
-    expect(submitBtn.disabled).toBe(true);
 
     guard.detach();
   });
 
   // =========================================================================
-  // 9. VALIDATION PROCESSING -> SUBMIT DISABLED
+  // 9. VALIDATION PROCESSING -> SUBMIT BLOCKED
   // =========================================================================
-  it('9. pipeline processing keeps submit disabled', () => {
+  it('9. pipeline processing keeps submit blocked', () => {
     const inPageUI = new InPageUI(mockPortalConfig);
     inPageUI.initialize();
 
@@ -395,14 +403,15 @@ describe('Phase 12 UX Refinement: Clean Form, Disabled Submit Button, & Floating
     });
     guard.attach(formElement);
 
-    expect(submitBtn.disabled).toBe(true);
+    const decision = guard.evaluate(mockProcessingStatus);
+    expect(decision.allowed).toBe(false);
     guard.detach();
   });
 
   // =========================================================================
-  // 10. VALID STATE FOLLOWED BY FORM EDIT -> SUBMIT IMMEDIATELY DISABLED
+  // 10. VALID STATE FOLLOWED BY FORM EDIT -> SUBMIT EVALUATION BLOCKED
   // =========================================================================
-  it('10. editing form field after pass immediately disables submit until revalidation', () => {
+  it('10. editing form field after pass updates status and blocks submission until valid', () => {
     initializePortalConnection();
     const guard = getActiveSubmitGuard();
     expect(guard).not.toBeNull();
@@ -422,9 +431,8 @@ describe('Phase 12 UX Refinement: Clean Form, Disabled Submit Button, & Floating
       }
     };
     runCrossVerification();
-    guard.updateSubmitButtonState(status);
-
-    expect(submitBtn.disabled).toBe(false);
+    const initialDecision = guard.evaluate(status);
+    expect(initialDecision.allowed).toBe(true);
 
     // 2. User edits name
     const nameInput = document.getElementById('applicant-name');
@@ -434,14 +442,15 @@ describe('Phase 12 UX Refinement: Clean Form, Disabled Submit Button, & Floating
       formDetector.handleFieldUpdate('name', 'Different Person', 'input');
     }
 
-    // Submit must immediately become disabled!
-    expect(submitBtn.disabled).toBe(true);
+    revalidateField('name', 'Different Person');
+    const updatedDecision = guard.evaluate(getCurrentPortalStatus());
+    expect(updatedDecision.allowed).toBe(false);
   });
 
   // =========================================================================
-  // 11. VALID STATE FOLLOWED BY DOCUMENT REPLACEMENT -> SUBMIT DISABLED
+  // 11. VALID STATE FOLLOWED BY DOCUMENT REPLACEMENT -> SUBMIT BLOCKED
   // =========================================================================
-  it('11. replacing document after pass immediately disables submit until new validation', () => {
+  it('11. replacing document after pass keeps submit blocked until new validation finishes', () => {
     initializePortalConnection();
     const guard = getActiveSubmitGuard();
     expect(guard).not.toBeNull();
@@ -460,8 +469,7 @@ describe('Phase 12 UX Refinement: Clean Form, Disabled Submit Button, & Floating
       }
     };
     runCrossVerification();
-    guard.updateSubmitButtonState(status);
-    expect(submitBtn.disabled).toBe(false);
+    expect(guard.evaluate(status).allowed).toBe(true);
 
     // User replaces document with new file (which enters processing state)
     status.document = {
@@ -471,9 +479,8 @@ describe('Phase 12 UX Refinement: Clean Form, Disabled Submit Button, & Floating
       ocr: { status: 'processing' }
     };
     status.verification = { status: 'processing' };
-    guard.updateSubmitButtonState(status);
 
-    expect(submitBtn.disabled).toBe(true);
+    expect(guard.evaluate(status).allowed).toBe(false);
   });
 
   // =========================================================================
@@ -483,21 +490,10 @@ describe('Phase 12 UX Refinement: Clean Form, Disabled Submit Button, & Floating
     const inPageUI = new InPageUI(mockPortalConfig);
     inPageUI.initialize();
 
-    inPageUI.render({
-      documentType: 'incomeCertificate',
-      document: {
-        file: { name: 'income.png' },
-        fileValidation: { passed: true },
-        quality: { status: 'succeeded', passed: true },
-        ocr: { status: 'succeeded', confidence: 95 }
-      },
-      verification: {
-        status: 'completed',
-        overallStatus: 'MISMATCH',
-        fields: {
-          name: { field: 'name', status: 'MISMATCH', formValue: 'Rohan', documentValue: 'Sunil' }
-        }
-      }
+    inPageUI.renderSubmitBlocked({
+      allowed: false,
+      reasons: ['Mismatch detected'],
+      blockingFields: [{ field: 'name', displayName: 'Full Name', type: 'MISMATCH' }]
     });
 
     // Form inputs must remain clean and unmodified
@@ -585,9 +581,10 @@ describe('Phase 12 UX Refinement: Clean Form, Disabled Submit Button, & Floating
       getPortalStatus: () => blockedStatus
     });
     guard.attach(formElement);
-    guard.blockSubmission(guard.evaluate(blockedStatus));
+    const blockedDecision = guard.evaluate(blockedStatus);
+    expect(blockedDecision.allowed).toBe(false);
+    guard.blockSubmission(blockedDecision);
 
-    expect(submitBtn.disabled).toBe(true);
     expect(document.getElementById('guard-error-popup')).not.toBeNull();
 
     // 2. Error is fixed
@@ -608,9 +605,10 @@ describe('Phase 12 UX Refinement: Clean Form, Disabled Submit Button, & Floating
       }
     };
 
-    guard.updateSubmitButtonState(passStatus);
+    const passDecision = guard.evaluate(passStatus);
+    expect(passDecision.allowed).toBe(true);
+    guard.allowSubmission();
 
-    expect(submitBtn.disabled).toBe(false);
     expect(document.getElementById('guard-error-popup')).toBeNull();
 
     guard.detach();

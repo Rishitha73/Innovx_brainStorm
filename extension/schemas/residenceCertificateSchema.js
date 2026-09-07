@@ -12,6 +12,7 @@ const residenceCertificateSchema = {
       formField: 'name',
       labels: [
         'Applicant Name',
+        'Full Name',
         'Candidate Name',
         'Citizen Name',
         'Citizen Full Name',

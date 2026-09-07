@@ -607,68 +607,95 @@
 /* ==========================================================================
    FLOATING ERROR POPUP (Clean Toast / Modal)
    ========================================================================== */
-.guard-error-popup {
+/* ==========================================================================
+   CENTERED VALIDATION MODAL OVERLAY (Phase 12 Unified Popup)
+   ========================================================================== */
+.guard-modal-backdrop,
+.guard-error-popup.guard-modal-backdrop {
   position: fixed;
-  top: 24px;
-  right: 24px;
-  width: calc(100% - 48px);
-  max-width: 420px;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999;
+  padding: 24px;
+  box-sizing: border-box;
+  animation: guardBackdropFadeIn 0.2s ease-out;
+}
+
+@keyframes guardBackdropFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.guard-modal-card {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
   background: #111827;
   color: #f9fafb;
   border: 1px solid #ef4444;
   border-left: 5px solid #ef4444;
-  border-radius: 12px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
-  z-index: 999999;
-  padding: 16px 18px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  animation: guardPopupSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 14px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(239, 68, 68, 0.2);
+  padding: 24px;
   box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  animation: guardModalScaleIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  outline: none;
 }
 
-@keyframes guardPopupSlideIn {
+@keyframes guardModalScaleIn {
   from {
     opacity: 0;
-    transform: translateY(-16px) scale(0.96);
+    transform: scale(0.95) translateY(8px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: scale(1) translateY(0);
   }
 }
 
-.guard-popup-header {
+.guard-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 14px;
 }
 
-.guard-popup-icon-title {
+.guard-modal-icon-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
-.guard-popup-icon {
-  font-size: 1.15rem;
+.guard-modal-icon {
+  font-size: 1.35rem;
   line-height: 1;
 }
 
-.guard-popup-title {
-  font-size: 0.95rem;
+.guard-modal-title {
+  font-size: 1.05rem;
   font-weight: 700;
   color: #fca5a5;
   letter-spacing: -0.01em;
   margin: 0;
 }
 
-.guard-popup-close-btn {
+.guard-modal-close-btn {
   background: transparent;
   border: none;
   color: #9ca3af;
   cursor: pointer;
-  padding: 4px;
+  padding: 6px;
   border-radius: 6px;
   display: flex;
   align-items: center;
@@ -676,59 +703,72 @@
   transition: color 0.15s, background 0.15s;
 }
 
-.guard-popup-close-btn:hover {
+.guard-modal-close-btn:hover {
   color: #f3f4f6;
   background: rgba(255, 255, 255, 0.1);
 }
 
-.guard-popup-body {
-  font-size: 0.88rem;
-  line-height: 1.45;
+.guard-modal-body {
+  font-size: 0.92rem;
+  line-height: 1.5;
   color: #e5e7eb;
 }
 
-.guard-popup-message {
-  margin-bottom: 8px;
+.guard-modal-message {
+  margin: 0 0 10px 0;
 }
 
-.guard-popup-action-hint {
-  font-size: 0.82rem;
-  color: #cbd5e1;
-  background: rgba(239, 68, 68, 0.12);
-  padding: 8px 10px;
-  border-radius: 6px;
-  border-left: 3px solid #f87171;
-  margin-top: 8px;
-}
-
-.guard-popup-issues-list {
-  margin: 8px 0;
+.guard-modal-issues-list {
+  margin: 10px 0 12px 0;
   padding-left: 20px;
+  color: #f3f4f6;
 }
 
-.guard-popup-issues-list li {
-  margin-bottom: 4px;
+.guard-modal-issues-list li {
+  margin-bottom: 6px;
+  line-height: 1.4;
 }
 
-.guard-popup-footer {
-  margin-top: 12px;
+.guard-modal-footer {
+  margin-top: 18px;
   display: flex;
   justify-content: flex-end;
 }
 
-.guard-popup-action-btn {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #f3f4f6;
-  font-size: 0.8rem;
+.guard-modal-action-btn {
+  background: #ef4444;
+  border: 1px solid #dc2626;
+  color: #ffffff;
+  font-size: 0.85rem;
   font-weight: 600;
-  padding: 6px 14px;
-  border-radius: 6px;
+  padding: 8px 18px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, transform 0.05s;
 }
 
-.guard-popup-action-btn:hover {
-  background: rgba(255, 255, 255, 0.16);
+.guard-modal-action-btn:hover {
+  background: #dc2626;
+}
+
+.guard-modal-action-btn:active {
+  transform: scale(0.98);
+}
+
+/* Action hint box */
+.guard-popup-action-hint {
+  font-size: 0.82rem;
+  color: #cbd5e1;
+  background: rgba(239, 68, 68, 0.12);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border-left: 3px solid #f87171;
+  margin-top: 10px;
+}
+
+/* Field-level subtle red border */
+.guard-field-invalid {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 1px #ef4444 !important;
 }
 

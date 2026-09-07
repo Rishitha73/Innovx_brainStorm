@@ -118,6 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentDocType === 'incomeCertificate' ? 'Income Certificate' :
         currentDocType === 'communityCertificate' ? 'Community Certificate' :
         currentDocType === 'residenceCertificate' ? 'Residence Certificate' :
+        (currentDocType === 'aadhar' || currentDocType === 'aadharCard' || currentDocType === 'aadhaar' || currentDocType === 'aadhaarCard') ? 'Aadhaar Card' :
         currentDocType
       );
     }

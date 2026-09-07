@@ -92,7 +92,7 @@ class CrossVerifier {
   }
 
   // Schema-driven extraction for a single field definition
-  extractField(rawOcrText, fieldDef) {
+  extractField(rawOcrText, fieldDef, formValue = null) {
     if (!rawOcrText || typeof rawOcrText !== 'string' || !fieldDef) {
       return null;
     }
@@ -102,27 +102,31 @@ class CrossVerifier {
       ? fieldDef.labels
       : [fieldDef.name, fieldDef.logicalName, fieldDef.id].filter(Boolean);
 
-    const labelPattern = labels.map((l) => this.escapeRegex(l).replace(/\\s\+/g, '\\s*')).join('|');
+    // Sort labels by length descending so longer phrases match before substrings
+    const sortedLabels = [...labels].sort((a, b) => b.length - a.length);
+    const labelPattern = sortedLabels.map((l) => this.escapeRegex(l).replace(/\\s\+/g, '\\s*')).join('|');
 
     if (fieldDef.extraction === 'date' || fieldDef.strategy === 'exactNormalizedDate' || fieldDef.id === 'dob' || fieldDef.logicalName === 'dob') {
-      // 1. Date extraction regex anchored to field labels
-      const dateLabelRegex = new RegExp(`(?:${labelPattern})\\s*[:\\-\\.]\\s*([0-9]{1,4}[\\/\\-\\.\\s][0-9]{1,2}[\\/\\-\\.\\s][0-9]{1,4})`, 'i');
+      // 1. Date extraction regex anchored to field labels (requires delimiter :, -, ., or |)
+      const dateLabelRegex = new RegExp(`(?:${labelPattern})\\s*[:\\-\\.\\|]\\s*(?:\\r?\\n)?\\s*([0-9]{1,4}[\\/\\-\\.\\s][0-9]{1,2}[\\/\\-\\.\\s][0-9]{1,4})`, 'i');
       const dateMatch = text.match(dateLabelRegex);
       if (dateMatch && dateMatch[1]) {
         return dateMatch[1].trim();
       }
 
-      // Fallback: block search within 30 chars after label
-      const blockRegex = new RegExp(`(?:${labelPattern})[\\s\\S]{1,30}?([0-9]{1,4}[\\/\\-\\.\\s][0-9]{1,2}[\\/\\-\\.\\s][0-9]{1,4})`, 'i');
+      // Fallback 1: block search within 35 chars after label
+      const blockRegex = new RegExp(`(?:${labelPattern})[\\s\\S]{1,35}?([0-9]{1,4}[\\/\\-\\.\\s][0-9]{1,2}[\\/\\-\\.\\s][0-9]{1,4})`, 'i');
       const blockMatch = text.match(blockRegex);
       if (blockMatch && blockMatch[1]) {
         return blockMatch[1].trim();
       }
+
       return null;
     }
 
     // 2. Text / Identifier extraction regex anchored to field labels
-    const textLabelRegex = new RegExp(`(?:${labelPattern})\\s*[:\\-\\.]\\s*([^\\r\\n]+)`, 'i');
+    // 2a. Requires a delimiter (:, -, ., |) and captures value on same or next line
+    const textLabelRegex = new RegExp(`(?:${labelPattern})\\s*[:\\-\\.\\|]\\s*(?:\\r?\\n)?\\s*([^\\r\\n]+)`, 'i');
     const textMatch = text.match(textLabelRegex);
     if (textMatch && textMatch[1]) {
       let candidate = textMatch[1].trim();
@@ -135,11 +139,57 @@ class CrossVerifier {
       }
     }
 
+    // 2b. Table layout fallback (2 or more spaces separating label and value on same line)
+    const tableRegex = new RegExp(`(?:${labelPattern})\\s{2,}([^\\r\\n]+)`, 'i');
+    const tableMatch = text.match(tableRegex);
+    if (tableMatch && tableMatch[1]) {
+      let candidate = tableMatch[1].trim();
+      candidate = candidate.replace(/\s*(?:DOB|Date of Birth|Certificate|Cert No|Annual Income|Income|Address|Permanent Address).*/i, '').trim();
+      candidate = candidate.replace(/^[\s|:;,"'-]+|[\s|:;,"'-]+$/g, '').trim();
+      if (candidate.length > 0) {
+        return candidate;
+      }
+    }
+
+    // 2c. Aadhaar / 12-digit identification pattern extraction fallback
+    if (fieldDef.id === 'certificateNumber' || fieldDef.logicalName === 'certificateNumber') {
+      const aadhaarPattern = /\b([0-9]{4}\s[0-9]{4}\s[0-9]{4})\b/;
+      const aadhaarMatch = text.match(aadhaarPattern);
+      if (aadhaarMatch && aadhaarMatch[1]) {
+        return aadhaarMatch[1].trim();
+      }
+      const aadhaarContinuous = /\b([0-9]{12})\b/;
+      const contMatch = text.match(aadhaarContinuous);
+      if (contMatch && contMatch[1]) {
+        return contMatch[1].trim();
+      }
+    }
+
+    // 2d. Form-value presence fallback
+    if (formValue && typeof formValue === 'string') {
+      const trimmedFormVal = formValue.trim();
+      if (trimmedFormVal.length >= 2) {
+        if (fieldDef.id === 'certificateNumber' || fieldDef.logicalName === 'certificateNumber') {
+          const normFormId = this.normalizeExactIdentifier(trimmedFormVal);
+          const normTextDigits = text.replace(/[^A-Za-z0-9]/g, '');
+          if (normFormId.length >= 4 && normTextDigits.includes(normFormId)) {
+            return trimmedFormVal;
+          }
+        } else if (fieldDef.id === 'name' || fieldDef.logicalName === 'name') {
+          const normFormName = this.normalizeText(trimmedFormVal);
+          const normText = this.normalizeText(text);
+          if (normFormName.length >= 3 && normText.includes(normFormName)) {
+            return trimmedFormVal;
+          }
+        }
+      }
+    }
+
     return null;
   }
 
   // Schema-driven extraction across all fields in the active schema
-  extractFields(rawOcrText, schemaParam = undefined) {
+  extractFields(rawOcrText, schemaParam = undefined, formData = {}) {
     const schema = this.resolveSchema(schemaParam);
     if (!schema || !Array.isArray(schema.fields)) {
       return {};
@@ -147,7 +197,11 @@ class CrossVerifier {
 
     const extracted = {};
     schema.fields.forEach((fieldDef) => {
-      const val = this.extractField(rawOcrText, fieldDef);
+      const fieldId = fieldDef.id || fieldDef.logicalName || fieldDef.name || fieldDef.formField;
+      const formKey = fieldDef.formField || fieldDef.id || fieldDef.logicalName || fieldDef.name;
+      const rawFormVal = formData ? this.getFieldValue(formData[formKey] !== undefined ? formData[formKey] : (formData[fieldId] !== undefined ? formData[fieldId] : formData[fieldDef.logicalName])) : null;
+
+      const val = this.extractField(rawOcrText, fieldDef, rawFormVal);
       const primaryKey = fieldDef.id || fieldDef.logicalName || fieldDef.name || fieldDef.formField;
       if (primaryKey) extracted[primaryKey] = val;
       if (fieldDef.id) extracted[fieldDef.id] = val;
@@ -398,14 +452,14 @@ class CrossVerifier {
       };
     }
 
-    const isOcrComplete = Boolean(ocrResult && ocrResult.status === 'succeeded');
+    const isOcrComplete = Boolean(ocrResult && (ocrResult.status === 'succeeded' || (!ocrResult.status && ocrResult.text)));
     const ocrConfidence = (ocrResult && typeof ocrResult.confidence === 'number')
       ? ocrResult.confidence
       : 0;
     const isConfidenceLow = isOcrComplete && (ocrConfidence < this.rules.minConfidenceThreshold);
 
     const extractedFields = isOcrComplete
-      ? this.extractFields(ocrResult.text, schema)
+      ? this.extractFields(ocrResult.text, schema, formData)
       : {};
 
     const fieldResults = {};
@@ -513,11 +567,10 @@ class CrossVerifier {
         ? ef[fieldDef.id]
         : (ef[fieldDef.logicalName] !== undefined ? ef[fieldDef.logicalName] : (ef[fieldDef.formField] || null));
     }
-    if (rawDocVal === null && isOcrComplete && ocrResult?.text) {
-      rawDocVal = this.extractField(ocrResult.text, fieldDef);
-    }
-
     const formattedFormVal = this.getFieldValue(rawFormVal);
+    if (rawDocVal === null && isOcrComplete && ocrResult?.text) {
+      rawDocVal = this.extractField(ocrResult.text, fieldDef, formattedFormVal);
+    }
 
     // Run single field comparison (increments fieldComparisonRuns only for this field)
     const fRes = this.compareField(

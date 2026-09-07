@@ -4,6 +4,7 @@
 let incomeCert = null;
 let communityCert = null;
 let residenceCert = null;
+let aadhaarCert = null;
 let normUtil = null;
 
 if (typeof require !== 'undefined') {
@@ -11,6 +12,7 @@ if (typeof require !== 'undefined') {
     incomeCert = require('./incomeCertificateSchema.js').incomeCertificateSchema;
     communityCert = require('./communityCertificateSchema.js').communityCertificateSchema;
     residenceCert = require('./residenceCertificateSchema.js').residenceCertificateSchema;
+    aadhaarCert = require('./aadhaarSchema.js').aadhaarSchema;
     normUtil = require('./schemaUtils.js').normalizeSchema;
   } catch (e) {}
 }
@@ -19,6 +21,7 @@ if (!incomeCert && typeof globalThis !== 'undefined') {
   incomeCert = globalThis.incomeCertificateSchema || null;
   communityCert = globalThis.communityCertificateSchema || null;
   residenceCert = globalThis.residenceCertificateSchema || null;
+  aadhaarCert = globalThis.aadhaarSchema || globalThis.aadharSchema || null;
   normUtil = globalThis.normalizeSchema || null;
 }
 
@@ -43,6 +46,14 @@ function registerSchema(rawSchema) {
 
   SCHEMAS[normalized.documentType] = normalized;
 
+  // Also register aliases if provided
+  if (Array.isArray(rawSchema.aliases)) {
+    rawSchema.aliases.forEach((alias) => {
+      SCHEMAS[alias] = normalized;
+      SCHEMAS[alias.toLowerCase()] = normalized;
+    });
+  }
+
   // Also register kebab-case or alternate key aliases for developer convenience
   const kebab = normalized.documentType.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
   if (kebab !== normalized.documentType) {
@@ -56,6 +67,7 @@ function registerSchema(rawSchema) {
 if (incomeCert) registerSchema(incomeCert);
 if (communityCert) registerSchema(communityCert);
 if (residenceCert) registerSchema(residenceCert);
+if (aadhaarCert) registerSchema(aadhaarCert);
 
 function getSchema(documentType) {
   if (!documentType || typeof documentType !== 'string') {

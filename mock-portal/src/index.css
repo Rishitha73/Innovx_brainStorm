@@ -273,6 +273,37 @@ body {
   font-size: 0.92rem;
 }
 
+/* Form Section Headers */
+.form-section-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 28px 0 4px;
+}
+
+.form-section-header:first-of-type {
+  margin-top: 8px;
+}
+
+.form-section-label {
+  font-family: var(--font-heading);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+
+.form-section-header::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, #c7d2fe 0%, #e2e8f0 100%);
+  border-radius: 1px;
+}
+
 /* Grid for Form Fields */
 .form-grid {
   display: grid;

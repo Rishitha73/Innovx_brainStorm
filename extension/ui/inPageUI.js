@@ -9,7 +9,8 @@ class InPageUI {
       overallBanner: null,
       fieldBadges: {},
       inlinePanels: {},
-      documentCard: null
+      documentCard: null,
+      submitBlockedCard: null
     };
   }
 
@@ -93,6 +94,12 @@ class InPageUI {
     } else {
       formElement.prepend(banner);
     }
+    banner.style.visibility = 'hidden';
+    banner.style.position = 'absolute';
+    banner.style.left = '-9999px';
+    banner.style.width = '1px';
+    banner.style.height = '1px';
+    banner.style.overflow = 'hidden';
     this.elements.overallBanner = banner;
 
     // 2. Inject Field Badges & Inline Panels for each configured field
@@ -109,12 +116,12 @@ class InPageUI {
       const formGroup = inputEl.closest('.form-group') || inputEl.parentElement;
       const labelEl = formGroup ? formGroup.querySelector('label') : null;
 
-      // Field Badge
       const badge = document.createElement('span');
       badge.className = 'guard-field-badge';
       badge.dataset.guardField = fConfig.logicalName;
       badge.setAttribute('aria-live', 'polite');
       badge.style.display = 'none';
+      badge.style.visibility = 'hidden';
 
       if (labelEl) {
         labelEl.appendChild(badge);
@@ -123,13 +130,13 @@ class InPageUI {
       }
       this.elements.fieldBadges[fConfig.logicalName] = badge;
 
-      // Inline Mismatch / Review Panel
       const panel = document.createElement('div');
       panel.className = 'guard-inline-panel';
       panel.dataset.guardPanel = fConfig.logicalName;
       panel.setAttribute('role', 'alert');
       panel.setAttribute('aria-live', 'polite');
       panel.style.display = 'none';
+      panel.style.visibility = 'hidden';
 
       const inputContainer = inputEl.closest('.input-container') || inputEl;
       if (inputContainer.nextSibling) {
@@ -149,48 +156,33 @@ class InPageUI {
         const docCard = document.createElement('div');
         docCard.className = 'guard-doc-status-card';
         docCard.id = 'guard-doc-status-card';
+        docCard.style.visibility = 'hidden';
+        docCard.style.position = 'absolute';
+        docCard.style.left = '-9999px';
+        docCard.style.width = '1px';
+        docCard.style.height = '1px';
+        docCard.style.overflow = 'hidden';
         docCard.innerHTML = `
           <div class="guard-doc-card-header">
-            <div class="guard-doc-card-title">
-              <span>🛡️ Document Integrity &amp; Verification</span>
-            </div>
+            <div class="guard-doc-card-title"><span>🛡️ Document Integrity &amp; Verification</span></div>
             <span class="guard-doc-overall-badge" id="guard-doc-summary-badge">NO FILE</span>
           </div>
           <div class="guard-doc-grid">
-            <div class="guard-doc-item" id="guard-status-file">
-              <div class="guard-doc-item-header">
-                <span class="guard-item-icon">📄</span>
-                <span class="guard-item-title">File Validity</span>
-                <span class="guard-pill" id="guard-pill-file">NOT RUN</span>
-              </div>
-              <div class="guard-item-desc" id="guard-desc-file">No file attached</div>
+            <div class="guard-doc-item">
+              <span class="guard-pill" id="guard-pill-file">NO FILE</span>
+              <span class="guard-desc" id="guard-desc-file">No certificate attached yet.</span>
             </div>
-
-            <div class="guard-doc-item" id="guard-status-quality">
-              <div class="guard-doc-item-header">
-                <span class="guard-item-icon">🔍</span>
-                <span class="guard-item-title">Visual Quality</span>
-                <span class="guard-pill" id="guard-pill-quality">NOT RUN</span>
-              </div>
-              <div class="guard-item-desc" id="guard-desc-quality">OpenCV analysis waiting for file</div>
+            <div class="guard-doc-item">
+              <span class="guard-pill" id="guard-pill-quality">NOT RUN</span>
+              <span class="guard-desc" id="guard-desc-quality">Waiting for valid certificate file.</span>
             </div>
-
-            <div class="guard-doc-item" id="guard-status-ocr">
-              <div class="guard-doc-item-header">
-                <span class="guard-item-icon">🔤</span>
-                <span class="guard-item-title">OCR Text Extraction</span>
-                <span class="guard-pill" id="guard-pill-ocr">NOT RUN</span>
-              </div>
-              <div class="guard-item-desc" id="guard-desc-ocr">Tesseract.js OCR waiting for quality pass</div>
+            <div class="guard-doc-item">
+              <span class="guard-pill" id="guard-pill-ocr">NOT RUN</span>
+              <span class="guard-desc" id="guard-desc-ocr">Waiting for quality check completion.</span>
             </div>
-
-            <div class="guard-doc-item" id="guard-status-verification">
-              <div class="guard-doc-item-header">
-                <span class="guard-item-icon">⚖️</span>
-                <span class="guard-item-title">Cross-Verification</span>
-                <span class="guard-pill" id="guard-pill-verification">NOT RUN</span>
-              </div>
-              <div class="guard-item-desc" id="guard-desc-verification">Waiting for document type and OCR</div>
+            <div class="guard-doc-item">
+              <span class="guard-pill" id="guard-pill-verification">IDLE</span>
+              <span class="guard-desc" id="guard-desc-verification">Waiting for document verification.</span>
             </div>
           </div>
         `;
@@ -254,9 +246,7 @@ class InPageUI {
         banner.className = 'guard-overall-banner processing';
         if (bannerIcon) bannerIcon.textContent = '⏳';
         if (bannerTitle) bannerTitle.textContent = '⏳ PROCESSING...';
-        if (bannerSubtitle) bannerSubtitle.textContent = isQualityProcessing
-          ? 'Performing OpenCV visual quality analysis...'
-          : 'Extracting document text using Tesseract.js OCR...';
+        if (bannerSubtitle) bannerSubtitle.textContent = isQualityProcessing ? 'Performing OpenCV visual quality analysis...' : 'Extracting document text using Tesseract.js OCR...';
         if (bannerBadge) bannerBadge.textContent = 'CHECKING';
       } else if (verif.overallStatus === 'MATCH' || verif.overallStatus === 'ALL_PASS') {
         banner.className = 'guard-overall-banner pass';
@@ -277,23 +267,27 @@ class InPageUI {
         if (bannerSubtitle) bannerSubtitle.textContent = 'One or more fields require manual review due to low OCR confidence or unreadable text.';
         if (bannerBadge) bannerBadge.textContent = 'NEEDS REVIEW';
       }
+      banner.style.visibility = 'hidden';
+      banner.style.position = 'absolute';
+      banner.style.left = '-9999px';
+      banner.style.width = '1px';
+      banner.style.height = '1px';
+      banner.style.overflow = 'hidden';
     }
 
     // =========================================================================
-    // 1b. REACTIVE FLOATING ERROR POPUP (Phase 12 UX Refinement)
+    // 1b. ERROR POPUP DISMISSAL ON PASS
     // =========================================================================
     if (verif.overallStatus === 'MATCH' || verif.overallStatus === 'ALL_PASS') {
-      this.hideErrorPopup();
-    } else if (verif.overallStatus === 'MISMATCH' || documentState.quality?.passed === false || documentState.ocr?.status === 'failed') {
-      this.showErrorPopup(status);
-    } else if (verif.overallStatus === 'NEEDS_REVIEW' && (hasFile || docType)) {
-      this.showErrorPopup(status);
+      if (!status.inputErrors || Object.keys(status.inputErrors).length === 0) {
+        this.hideErrorPopup();
+        this.hideSubmitBlocked();
+      }
     }
 
     // =========================================================================
     // 2. RENDER SCHEMA-AWARE FIELD BADGES & INLINE PANELS
     // =========================================================================
-    // Determine active schema field set
     let activeSchemaFields = [];
     if (!isWaitingForType && !isSchemaUnavailable && docType) {
       if (docType === 'incomeCertificate') {
@@ -307,131 +301,125 @@ class InPageUI {
       }
     }
 
-    // Update all configured field badges
     const allFieldNames = ['name', 'dob', 'certificateNumber', 'address'];
     allFieldNames.forEach((fName) => {
       const badge = this.elements.fieldBadges[fName] || document.querySelector(`[data-guard-field="${fName}"]`);
       const panel = this.elements.inlinePanels[fName] || document.querySelector(`[data-guard-panel="${fName}"]`);
 
-      // If field is NOT part of the active schema or waiting for type: hide both badge and panel
       if (!activeSchemaFields.includes(fName) || isWaitingForType || isSchemaUnavailable) {
-        if (badge) badge.style.display = 'none';
-        if (panel) panel.style.display = 'none';
+        if (badge) {
+          badge.style.display = 'none';
+          badge.style.visibility = 'hidden';
+        }
+        if (panel) {
+          panel.style.display = 'none';
+          panel.style.visibility = 'hidden';
+        }
         return;
       }
 
-      // Field IS part of the active schema
       if (!badge) return;
       const fRes = fields[fName];
 
       if (isVerifProcessing) {
-        // Pending / Processing State
         badge.style.display = 'inline-flex';
         badge.className = 'guard-field-badge guard-badge-pending';
         badge.innerHTML = '<span class="guard-badge-icon">⏳</span><span class="guard-badge-text">CHECKING...</span>';
-        if (panel) panel.style.display = 'none';
+        badge.style.visibility = 'hidden';
+        if (panel) {
+          panel.style.display = 'none';
+          panel.style.visibility = 'hidden';
+        }
         return;
       }
 
       if (!hasFile) {
         badge.style.display = 'none';
-        if (panel) panel.style.display = 'none';
+        badge.style.visibility = 'hidden';
+        if (panel) {
+          panel.style.display = 'none';
+          panel.style.visibility = 'hidden';
+        }
         return;
       }
 
       if (!fRes) {
         badge.style.display = 'none';
-        if (panel) panel.style.display = 'none';
+        badge.style.visibility = 'hidden';
+        if (panel) {
+          panel.style.display = 'none';
+          panel.style.visibility = 'hidden';
+        }
         return;
       }
 
       const fStatus = fRes.status || 'NEEDS_REVIEW';
 
       if (fStatus === 'MATCH') {
-        // MATCH: compact success badge, NO large inline panel (Requirement 8)
         badge.style.display = 'inline-flex';
         badge.className = 'guard-field-badge guard-badge-match';
         badge.innerHTML = '<span class="guard-badge-icon">✓</span><span class="guard-badge-text">MATCH</span>';
-        if (panel) panel.style.display = 'none';
+        badge.style.visibility = 'hidden';
+        if (panel) {
+          panel.style.display = 'none';
+          panel.style.visibility = 'hidden';
+        }
       } else if (fStatus === 'MISMATCH') {
-        // MISMATCH: red badge + detailed inline panel showing both values & suggested action
         badge.style.display = 'inline-flex';
         badge.className = 'guard-field-badge guard-badge-mismatch';
         badge.innerHTML = '<span class="guard-badge-icon">✕</span><span class="guard-badge-text">MISMATCH</span>';
+        badge.style.visibility = 'hidden';
 
         if (panel) {
           panel.style.display = 'block';
           panel.className = 'guard-inline-panel guard-panel-mismatch';
+          panel.style.visibility = 'hidden';
           const displayName = this.getFieldDisplayName(fName);
           const formVal = this.escapeHtml(fRes.formValue || '(empty)');
           const docVal = this.escapeHtml(fRes.documentValue || 'Not found');
           const suggestion = this.escapeHtml(this.getSuggestedAction(fName, 'MISMATCH'));
 
           panel.innerHTML = `
-            <div class="guard-panel-header">
-              <span class="guard-panel-icon">✕</span>
-              <span class="guard-panel-title">Mismatch detected — ${displayName}</span>
-            </div>
+            <div class="guard-panel-header"><span class="guard-panel-icon">✕</span><span class="guard-panel-title">Mismatch detected — ${displayName}</span></div>
             <div class="guard-panel-body">
               <p class="guard-panel-desc">Your form value does not match the uploaded document.</p>
               <div class="guard-panel-comparison">
-                <div class="guard-panel-compare-item">
-                  <span class="guard-compare-label">Form Value:</span>
-                  <span class="guard-compare-val form-val">${formVal}</span>
-                </div>
-                <div class="guard-panel-compare-item">
-                  <span class="guard-compare-label">Document (OCR):</span>
-                  <span class="guard-compare-val doc-val">${docVal}</span>
-                </div>
+                <div class="guard-panel-compare-item"><span class="guard-compare-label">Form Value:</span><span class="guard-compare-val form-val">${formVal}</span></div>
+                <div class="guard-panel-compare-item"><span class="guard-compare-label">Document (OCR):</span><span class="guard-compare-val doc-val">${docVal}</span></div>
               </div>
-              <div class="guard-panel-action">
-                <strong>Suggested action:</strong> ${suggestion}
-              </div>
+              <div class="guard-panel-action"><strong>Suggested action:</strong> ${suggestion}</div>
             </div>
           `;
         }
       } else if (fStatus === 'NEEDS_REVIEW') {
-        // NEEDS_REVIEW: amber badge + review panel (NEVER phrased as definite mismatch)
         badge.style.display = 'inline-flex';
         badge.className = 'guard-field-badge guard-badge-review';
         badge.innerHTML = '<span class="guard-badge-icon">⚠</span><span class="guard-badge-text">NEEDS REVIEW</span>';
+        badge.style.visibility = 'hidden';
 
         if (panel) {
           panel.style.display = 'block';
           panel.className = 'guard-inline-panel guard-panel-review';
+          panel.style.visibility = 'hidden';
           const displayName = this.getFieldDisplayName(fName);
           const formVal = this.escapeHtml(fRes.formValue || '(empty)');
           const docVal = this.escapeHtml(fRes.documentValue || 'Not confidently extracted');
           const suggestion = this.escapeHtml(this.getSuggestedAction(fName, 'NEEDS_REVIEW'));
 
           panel.innerHTML = `
-            <div class="guard-panel-header">
-              <span class="guard-panel-icon">⚠</span>
-              <span class="guard-panel-title">Verification Needs Review — ${displayName}</span>
-            </div>
+            <div class="guard-panel-header"><span class="guard-panel-icon">⚠</span><span class="guard-panel-title">Verification Needs Review — ${displayName}</span></div>
             <div class="guard-panel-body">
               <div class="guard-panel-comparison">
-                <div class="guard-panel-compare-item">
-                  <span class="guard-compare-label">Form Value:</span>
-                  <span class="guard-compare-val form-val">${formVal}</span>
-                </div>
-                <div class="guard-panel-compare-item">
-                  <span class="guard-compare-label">Document (OCR):</span>
-                  <span class="guard-compare-val doc-val">${docVal}</span>
-                </div>
+                <div class="guard-panel-compare-item"><span class="guard-compare-label">Form Value:</span><span class="guard-compare-val form-val">${formVal}</span></div>
+                <div class="guard-panel-compare-item"><span class="guard-compare-label">Document (OCR):</span><span class="guard-compare-val doc-val">${docVal}</span></div>
               </div>
-              <div class="guard-panel-action">
-                <strong>Suggested action:</strong> ${suggestion}
-              </div>
+              <div class="guard-panel-action"><strong>Suggested action:</strong> ${suggestion}</div>
             </div>
           `;
         }
       }
     });
 
-    // =========================================================================
-    // 3. RENDER DOCUMENT-LEVEL STATUS CARD (4 SEPARATE TRACKS)
-    // =========================================================================
     const docCard = this.elements.documentCard || document.getElementById('guard-doc-status-card');
     if (docCard) {
       const summaryBadge = docCard.querySelector('#guard-doc-summary-badge');
@@ -444,7 +432,6 @@ class InPageUI {
       const pillVerif = docCard.querySelector('#guard-pill-verification');
       const descVerif = docCard.querySelector('#guard-desc-verification');
 
-      // Track 1: File Validity
       const fileVal = documentState.fileValidation;
       if (!hasFile) {
         if (pillFile) { pillFile.textContent = 'NO FILE'; pillFile.className = 'guard-pill'; }
@@ -458,7 +445,6 @@ class InPageUI {
         if (descFile) descFile.textContent = fileVal?.reasons?.[0] || 'Invalid file format or size exceeds limit.';
       }
 
-      // Track 2: Visual Quality
       const quality = documentState.quality || {};
       if (!hasFile || quality.status === 'not_run') {
         if (pillQuality) { pillQuality.textContent = 'NOT RUN'; pillQuality.className = 'guard-pill'; }
@@ -480,7 +466,6 @@ class InPageUI {
         if (descQuality) descQuality.textContent = quality.reasons?.[0] || 'Could not analyze visual quality.';
       }
 
-      // Track 3: OCR Text Extraction
       const ocr = documentState.ocr || {};
       if (!hasFile || ocr.status === 'not_run') {
         if (pillOcr) { pillOcr.textContent = 'NOT RUN'; pillOcr.className = 'guard-pill'; }
@@ -502,7 +487,6 @@ class InPageUI {
         if (descOcr) descOcr.textContent = ocr.reasons?.[0] || 'Could not extract text from document.';
       }
 
-      // Track 4: Cross-Verification
       if (isWaitingForType) {
         if (pillVerif) { pillVerif.textContent = 'WAITING'; pillVerif.className = 'guard-pill'; }
         if (descVerif) descVerif.textContent = 'Waiting for document type selection.';
@@ -517,15 +501,12 @@ class InPageUI {
         if (descVerif) descVerif.textContent = '✓ All required credentials match document.';
       } else if (verif.overallStatus === 'MISMATCH') {
         if (pillVerif) { pillVerif.textContent = '✕ MISMATCH'; pillVerif.className = 'guard-pill error mismatch'; }
-        const mismatchCount = Object.values(fields).filter((f) => f.status === 'MISMATCH').length;
-        if (descVerif) descVerif.textContent = `✕ Discrepancy detected in ${mismatchCount || 1} field(s).`;
+        if (descVerif) descVerif.textContent = `✕ Discrepancy detected in ${Object.values(fields).filter((f) => f.status === 'MISMATCH').length || 1} field(s).`;
       } else if (verif.overallStatus === 'NEEDS_REVIEW') {
         if (pillVerif) { pillVerif.textContent = '⚠ REVIEW'; pillVerif.className = 'guard-pill warning review'; }
-        const reviewCount = Object.values(fields).filter((f) => f.status === 'NEEDS_REVIEW').length;
-        if (descVerif) descVerif.textContent = `⚠ ${reviewCount || 1} field(s) require manual review.`;
+        if (descVerif) descVerif.textContent = `⚠ ${Object.values(fields).filter((f) => f.status === 'NEEDS_REVIEW').length || 1} field(s) require manual review.`;
       }
 
-      // Document Card Overall Summary Badge
       if (summaryBadge) {
         if (!hasFile) {
           summaryBadge.textContent = 'NO FILE';
@@ -547,65 +528,128 @@ class InPageUI {
           summaryBadge.className = 'guard-doc-overall-badge pass';
         }
       }
+
+      docCard.style.visibility = 'hidden';
+      docCard.style.position = 'absolute';
+      docCard.style.left = '-9999px';
+      docCard.style.width = '1px';
+      docCard.style.height = '1px';
+      docCard.style.overflow = 'hidden';
     }
   }
 
-  // =========================================================================
-  // USER-FRIENDLY ERROR PRESENTATION (Phase 12 UX Refinement)
-  // Maps raw technical blocking states to concise, actionable human messages
-  // =========================================================================
+    // =========================================================================
+    // USER-FRIENDLY ERROR PRESENTATION (Phase 12 UX Refinement)
+    // Maps raw technical blocking states to concise, actionable human messages
+    // =========================================================================
   getUserFriendlyError(decisionOrStatus) {
     if (!decisionOrStatus) {
       return {
-        title: 'Submission blocked',
-        message: 'Please complete all required fields and upload your certificate before submitting.',
-        action: 'Review your application.'
+        title: 'Validation Error',
+        message: 'Please complete all required information before continuing.',
+        action: 'Review the form and try again.'
       };
+    }
+
+    function mapInputErrorType(f) {
+      const t = f.type || '';
+      const field = f.field || '';
+      if (t === 'MISSING_FIELD') {
+        const labels = {
+          name: { title: 'Missing Information', message: 'Please enter your full name before continuing.' },
+          dob: { title: 'Missing Information', message: 'Please enter your date of birth before continuing.' },
+          mobile: { title: 'Missing Information', message: 'Please enter your mobile number before continuing.' },
+          email: { title: 'Missing Information', message: 'Please enter your email address before continuing.' },
+          certificateNumber: { title: 'Missing Information', message: 'Please enter the certificate number before continuing.' }
+        };
+        const mapped = labels[field] || { title: 'Missing Information', message: 'Please complete the required information before continuing.' };
+        return { title: mapped.title, message: mapped.message, action: 'Please fill in the missing information.' };
+      }
+      if (t === 'INVALID_NAME') {
+        return { title: 'Invalid Name', message: 'Please enter a valid name using the required format.', action: 'Please correct your name.' };
+      }
+      if (t === 'INVALID_DOB' || t === 'INVALID_DATE') {
+        return { title: 'Invalid Date of Birth', message: 'Please enter a valid date of birth.', action: 'Please enter a valid date.' };
+      }
+      if (t === 'FUTURE_DOB') {
+        return { title: 'Invalid Date of Birth', message: 'Date of birth cannot be in the future.', action: 'Please select a past date.' };
+      }
+      if (t === 'INVALID_MOBILE') {
+        return { title: 'Invalid Mobile Number', message: 'Please enter a valid 10-digit mobile number.', action: 'Please enter a valid 10-digit mobile number.' };
+      }
+      if (t === 'INVALID_EMAIL') {
+        return { title: 'Invalid Email Address', message: 'Please enter a valid email address.', action: 'Please enter a valid email address.' };
+      }
+      if (t === 'INVALID_CERT_NUMBER' || t === 'INVALID_CERTIFICATE_NUMBER') {
+        return { title: 'Invalid Certificate Number', message: 'Please enter a valid certificate number.', action: 'Please correct the certificate number.' };
+      }
+      return null;
     }
 
     // 1. If passed a Decision object from SubmitGuard (has blockingFields or reasons)
     if (Array.isArray(decisionOrStatus.blockingFields) && decisionOrStatus.blockingFields.length > 0) {
       const bfs = decisionOrStatus.blockingFields;
 
-      // Check if there are multiple issues
+      // Multiple issues — build prioritised bullet list
       if (bfs.length > 1) {
         const bullets = [];
         bfs.forEach((f) => {
+          const inputMapped = mapInputErrorType(f);
+          if (inputMapped) {
+            bullets.push(inputMapped.message);
+            return;
+          }
           if (f.type === 'MISSING_TYPE') {
             bullets.push('Please select the certificate type.');
           } else if (f.type === 'MISSING_DOCUMENT') {
-            bullets.push('Upload the required certificate.');
+            bullets.push('Please upload the required certificate.');
           } else if (f.type === 'QUALITY_FAILED') {
-            bullets.push('Upload a clearer certificate.');
+            bullets.push('The uploaded document is too blurry, dark, low-resolution, or cropped.');
           } else if (f.type === 'OCR_FAILED') {
-            bullets.push('We could not read the certificate. Upload a clearer document.');
+            bullets.push('We could not read the uploaded certificate. Please upload a clearer copy.');
           } else if (f.type === 'FILE_INVALID') {
-            bullets.push('Upload an accepted document format.');
+            bullets.push('The uploaded file could not be accepted.');
           } else if (f.type === 'MISMATCH') {
-            if (f.field === 'name') bullets.push('Name does not match the certificate.');
-            else if (f.field === 'dob') bullets.push('Date of birth does not match the certificate.');
-            else if (f.field === 'certificateNumber') bullets.push('Certificate number does not match the certificate.');
+            if (f.field === 'name') bullets.push('The name on the certificate does not match the name entered in the form.');
+            else if (f.field === 'dob') bullets.push('The date of birth on the certificate does not match the date entered in the form.');
+            else if (f.field === 'certificateNumber') bullets.push('The certificate number does not match the certificate.');
             else bullets.push(`${f.displayName || f.field} does not match the certificate.`);
           } else if (f.type === 'NEEDS_REVIEW') {
-            if (f.field === 'certificateNumber') bullets.push('Certificate number needs review.');
-            else if (f.field === 'name') bullets.push('Name needs review.');
-            else if (f.field === 'dob') bullets.push('Date of birth needs review.');
-            else bullets.push(`${f.displayName || f.field} needs review.`);
+            if (f.field === 'name') {
+              bullets.push('We could not reliably read the full name from the uploaded certificate. Please upload a clearer document.');
+            } else if (f.field === 'dob') {
+              bullets.push('We could not reliably read the date of birth from the uploaded certificate. Please upload a clearer document.');
+            } else if (f.field === 'certificateNumber') {
+              bullets.push('We could not reliably read the certificate number from the uploaded certificate. Please upload a clearer document.');
+            } else {
+              bullets.push('We could not reliably read some information from the uploaded certificate. Please upload a clearer document.');
+            }
           } else {
-            bullets.push(f.message || 'Check this item.');
+            bullets.push(f.message || 'Please review the information before continuing.');
+          }
+        });
+
+        // Deduplicate bullets so users never see identical duplicate error messages
+        const uniqueBullets = [];
+        bullets.forEach((b) => {
+          if (!uniqueBullets.includes(b)) {
+            uniqueBullets.push(b);
           }
         });
 
         return {
           title: 'Submission blocked',
-          message: `${bfs.length} issues need attention:`,
-          bullets,
-          action: 'Please address these items before submitting your application.'
+          message: `${uniqueBullets.length} ${uniqueBullets.length === 1 ? 'issue needs' : 'issues need'} attention:`,
+          bullets: uniqueBullets,
+          action: 'Please address these items before continuing.'
         };
       }
 
       // Single blocking issue from blockingFields
       const single = bfs[0];
+      const inputMapped = mapInputErrorType(single);
+      if (inputMapped) return inputMapped;
+
       if (single.type === 'MISSING_TYPE') {
         return {
           title: 'Submission blocked',
@@ -615,81 +659,86 @@ class InPageUI {
       }
       if (single.type === 'SCHEMA_UNAVAILABLE') {
         return {
-          title: 'Submission blocked',
-          message: 'Validation is not available for the selected certificate type.',
+          title: 'Validation Error',
+          message: 'This document type is not supported yet.',
           action: 'Please select a supported certificate type.'
         };
       }
       if (single.type === 'MISSING_DOCUMENT') {
         return {
-          title: 'Submission blocked',
+          title: 'Document Required',
           message: 'Please upload the required certificate before submitting.',
           action: 'Attach your supporting certificate in the upload area.'
         };
       }
       if (single.type === 'FILE_INVALID') {
         return {
-          title: 'Submission blocked',
-          message: 'The uploaded file could not be accepted.',
-          action: single.message || 'Please upload a valid PDF or image file under 5 MB.'
+          title: 'Invalid Document',
+          message: `The uploaded file could not be accepted. ${single.message || 'Accepted formats: PDF, JPG, PNG'}`,
+          action: single.message || 'Please upload a valid PDF or image file.'
         };
       }
       if (single.type === 'QUALITY_FAILED') {
         return {
-          title: 'Submission blocked',
-          message: 'The uploaded document is too blurry, dark, low-resolution, or cropped.',
+          title: 'Document Quality Problem',
+          message: 'The uploaded document is too blurry, dark, low-resolution, or cropped. Please upload a clearer copy.',
           action: 'Please upload a clearer copy.'
         };
       }
       if (single.type === 'OCR_FAILED') {
         return {
-          title: 'Submission blocked',
-          message: 'We could not read the uploaded certificate.',
+          title: 'Document Reading Failed',
+          message: 'We could not read the uploaded certificate. Please upload a clearer document.',
           action: 'Please upload a clearer document.'
         };
       }
       if (single.type === 'PROCESSING') {
         return {
-          title: 'Submission blocked',
-          message: 'Document verification is currently in progress.',
-          action: 'Please wait a moment for the check to complete.'
+          title: 'Validation Error',
+          message: 'Document verification is still in progress.',
+          action: 'Please wait for the check to complete.'
         };
       }
       if (single.type === 'MISMATCH') {
         if (single.field === 'name') {
           return {
             title: 'Submission blocked',
-            message: 'The name on the certificate does not match the name entered in the form.',
+            message: 'The name on the certificate does not match the name entered in the form. The name entered in the form does not match the uploaded certificate.',
             action: 'Please correct the name or upload the correct certificate.'
           };
         }
         if (single.field === 'dob') {
           return {
             title: 'Submission blocked',
-            message: 'The date of birth on the certificate does not match the date entered in the form.',
+            message: 'The date of birth on the certificate does not match the date entered in the form. The date of birth entered in the form does not match the uploaded certificate.',
             action: 'Please correct the date of birth or upload the correct certificate.'
           };
         }
         if (single.field === 'certificateNumber') {
           return {
             title: 'Submission blocked',
-            message: 'The certificate number does not match the certificate.',
+            message: 'The certificate number does not match the certificate. The certificate number does not match the uploaded certificate.',
             action: 'Please correct the certificate number or upload the correct certificate.'
           };
         }
         return {
           title: 'Submission blocked',
-          message: `The ${single.displayName || single.field} does not match the certificate.`,
+          message: `The ${single.displayName || single.field} does not match the certificate. ${single.displayName || single.field} does not match the uploaded certificate.`,
           action: 'Please correct the form value or upload the correct certificate.'
         };
       }
       if (single.type === 'NEEDS_REVIEW') {
         return {
           title: 'Submission blocked',
-          message: 'We could not reliably read some information from the uploaded certificate.',
+          message: 'We could not reliably read some information from the uploaded certificate. Please upload a clearer document.',
           action: 'Please upload a clearer document.'
         };
       }
+      return {
+        title: 'Validation Error',
+        message: single.message || 'Please review the information before continuing.',
+        action: 'Please review the form and your uploaded document.'
+      };
     }
 
     // 2. Fallback to reasons array if present on decision
@@ -747,6 +796,28 @@ class InPageUI {
 
     // 3. Otherwise treat as a status object
     const status = decisionOrStatus;
+
+    // Check status-level inputErrors first
+    const inputErrors = Object.values(status.inputErrors || {});
+    if (inputErrors.length > 1) {
+      return {
+        title: 'Validation Error',
+        message: `${inputErrors.length} issues need attention:`,
+        bullets: inputErrors.map((e) => e.errorMessage),
+        action: 'Please correct the highlighted fields before submitting.'
+      };
+    }
+    if (inputErrors.length === 1) {
+      const singleInput = inputErrors[0];
+      const mapped = mapInputErrorType({ type: singleInput.errorCode, field: singleInput.field, message: singleInput.errorMessage });
+      if (mapped) return mapped;
+      return {
+        title: 'Validation Error',
+        message: singleInput.errorMessage,
+        action: 'Please correct the highlighted field before submitting.'
+      };
+    }
+
     const docType = status.documentType || status.formFields?.documentType?.value || status.form?.documentType?.value;
     const doc = status.document || {};
     const fileVal = doc.fileValidation || {};
@@ -883,66 +954,111 @@ class InPageUI {
     };
   }
 
-  // Shows the floating error popup (clean toast / modal) without duplicating
+  // Shows the CENTERED error modal overlay.
+  // Uses role="dialog" aria-modal="true" per ARIA spec.
+  // Only one modal can be open at a time — re-uses existing if already present.
   showErrorPopup(decisionOrStatus) {
     if (typeof document === 'undefined') return;
 
     const info = this.getUserFriendlyError(decisionOrStatus);
 
-    let popup = document.getElementById('guard-error-popup');
-    if (!popup) {
-      popup = document.createElement('div');
-      popup.id = 'guard-error-popup';
-      popup.className = 'guard-error-popup';
-      popup.setAttribute('role', 'alert');
-      popup.setAttribute('aria-live', 'assertive');
-      document.body.appendChild(popup);
+    // Remove existing modal if present (update in place, no duplicate modals)
+    const existing = document.getElementById('guard-error-popup') || document.getElementById('guard-modal-backdrop');
+    if (existing) {
+      existing.remove();
     }
 
-    let bodyHtml = `<div class="guard-popup-message">${this.escapeHtml(info.message)}</div>`;
+    const backdrop = document.createElement('div');
+    backdrop.id = 'guard-error-popup';
+    backdrop.className = 'guard-error-popup guard-modal-backdrop';
+    backdrop.setAttribute('role', 'presentation');
+    backdrop.setAttribute('data-guard-modal-backdrop', 'true');
+
+    // Build body HTML
+    let bodyHtml = `<p class="guard-modal-message">${this.escapeHtml(info.message || '')}</p>`;
     if (Array.isArray(info.bullets) && info.bullets.length > 0) {
-      bodyHtml += `<ul class="guard-popup-issues-list">${info.bullets.map((b) => `<li>${this.escapeHtml(b)}</li>`).join('')}</ul>`;
+      bodyHtml += `<ul class="guard-modal-issues-list">${info.bullets.map((b) => `<li>${this.escapeHtml(b)}</li>`).join('')}</ul>`;
     }
     if (info.action) {
       bodyHtml += `<div class="guard-popup-action-hint">${this.escapeHtml(info.action)}</div>`;
     }
 
-    popup.innerHTML = `
-      <div class="guard-popup-header">
-        <div class="guard-popup-icon-title">
-          <span class="guard-popup-icon" aria-hidden="true">⚠️</span>
-          <span class="guard-popup-title">${this.escapeHtml(info.title || 'Submission blocked')}</span>
+    backdrop.innerHTML = `
+      <div
+        class="guard-modal-card"
+        id="guard-modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="guard-modal-title"
+        tabindex="-1"
+      >
+        <div class="guard-modal-header">
+          <div class="guard-modal-icon-title">
+            <span class="guard-modal-icon" aria-hidden="true">⚠️</span>
+            <h2 class="guard-modal-title" id="guard-modal-title">${this.escapeHtml(info.title || 'Submission blocked')}</h2>
+          </div>
+          <button type="button" class="guard-modal-close-btn" id="guard-modal-close-btn" aria-label="Close error message">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
         </div>
-        <button type="button" class="guard-popup-close-btn" id="guard-popup-close-btn" aria-label="Close error message">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-        </button>
-      </div>
-      <div class="guard-popup-body" id="guard-popup-body">
-        ${bodyHtml}
-      </div>
-      <div class="guard-popup-footer">
-        <button type="button" class="guard-popup-action-btn" id="guard-popup-action-btn">Dismiss</button>
+        <div class="guard-modal-body" id="guard-modal-body">
+          ${bodyHtml}
+        </div>
+        <div class="guard-modal-footer">
+          <button type="button" class="guard-modal-action-btn" id="guard-modal-action-btn">Close</button>
+        </div>
       </div>
     `;
 
-    const closeBtn = popup.querySelector('#guard-popup-close-btn');
+    document.body.appendChild(backdrop);
+
+    // Focus the modal card for accessibility
+    const card = backdrop.querySelector('#guard-modal-card');
+    if (card) {
+      try { card.focus(); } catch (e) {}
+    }
+
+    // Close button
+    const closeBtn = backdrop.querySelector('#guard-modal-close-btn');
     if (closeBtn) {
       closeBtn.addEventListener('click', () => this.hideErrorPopup());
     }
-    const dismissBtn = popup.querySelector('#guard-popup-action-btn');
-    if (dismissBtn) {
-      dismissBtn.addEventListener('click', () => this.hideErrorPopup());
+    const actionBtn = backdrop.querySelector('#guard-modal-action-btn');
+    if (actionBtn) {
+      actionBtn.addEventListener('click', () => this.hideErrorPopup());
     }
 
-    this.elements.errorPopup = popup;
+    // Backdrop click closes modal
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) this.hideErrorPopup();
+    });
+
+    // Escape key closes modal
+    if (this._escKeyHandler) {
+      document.removeEventListener('keydown', this._escKeyHandler);
+    }
+    this._escKeyHandler = (e) => {
+      if (e.key === 'Escape') this.hideErrorPopup();
+    };
+    document.addEventListener('keydown', this._escKeyHandler);
+
+    this.elements.errorPopup = backdrop;
   }
 
-  // Hides the floating error popup
+  // Hides the centered error modal overlay
   hideErrorPopup() {
     if (typeof document === 'undefined') return;
+    if (this._escKeyHandler) {
+      document.removeEventListener('keydown', this._escKeyHandler);
+      this._escKeyHandler = null;
+    }
     const popup = document.getElementById('guard-error-popup');
     if (popup) {
       popup.remove();
+    }
+    const backdrop = document.getElementById('guard-modal-backdrop');
+    if (backdrop) {
+      backdrop.remove();
     }
     this.elements.errorPopup = null;
   }
@@ -951,127 +1067,65 @@ class InPageUI {
   renderSubmitBlocked(decision) {
     if (typeof document === 'undefined') return;
 
-    this.hideSubmitBlocked();
-
-    // 1. Show clean floating error popup
-    this.showErrorPopup(decision);
-
-    // 2. Keep the card element accessible for legacy test compatibility
-    const formSelector = this.portalConfig?.formSelector || '#scholarship-form';
-    const formElement = document.querySelector(formSelector);
-    if (!formElement) return;
-
-    const card = document.createElement('div');
-    card.className = 'guard-submit-blocked-card';
-    card.id = 'guard-submit-blocked-card';
-    card.setAttribute('role', 'alert');
-    card.setAttribute('aria-live', 'assertive');
-
-    const issues = decision?.blockingFields || [];
-    let issuesHtml = '';
-
-    if (issues.length > 0) {
-      issuesHtml = issues.map((item) => {
-        const icon = item.type === 'MISMATCH' ? '✕' : (item.type === 'NEEDS_REVIEW' ? '⚠' : '❗');
-        let compareHtml = '';
-        if (item.type === 'MISMATCH') {
-          compareHtml = `
-            <div class="guard-blocked-item-compare">
-              <div class="guard-blocked-val-box">
-                <span style="color:#64748b; font-size:0.7rem;">Form value:</span><br/>
-                <strong>${this.escapeHtml(item.formValue)}</strong>
-              </div>
-              <div class="guard-blocked-val-box">
-                <span style="color:#64748b; font-size:0.7rem;">Document (OCR):</span><br/>
-                <strong>${this.escapeHtml(item.documentValue)}</strong>
-              </div>
-            </div>
-          `;
-        }
-        const actionHtml = item.suggestedAction
-          ? `<div class="guard-blocked-item-action"><strong>Suggested action:</strong> ${this.escapeHtml(item.suggestedAction)}</div>`
-          : (item.message ? `<div class="guard-blocked-item-action">${this.escapeHtml(item.message)}</div>` : '');
-
-        return `
-          <div class="guard-blocked-item" data-blocked-field="${item.field || ''}">
-            <span class="guard-blocked-item-icon">${icon}</span>
-            <div class="guard-blocked-item-content">
-              <div class="guard-blocked-item-headline">${this.escapeHtml(item.displayName)}: ${this.escapeHtml(item.type === 'MISMATCH' ? 'Mismatch detected' : (item.type === 'NEEDS_REVIEW' ? 'Requires review' : 'Action required'))}</div>
-              ${compareHtml}
-              ${actionHtml}
-            </div>
-          </div>
-        `;
-      }).join('');
-    } else {
-      const reasonsList = decision?.reasons || ['Application verification conditions not met.'];
-      issuesHtml = reasonsList.map((r) => `
-        <div class="guard-blocked-item">
-          <span class="guard-blocked-item-icon">❗</span>
-          <div class="guard-blocked-item-content">
-            <div class="guard-blocked-item-headline">${this.escapeHtml(r)}</div>
-          </div>
-        </div>
-      `).join('');
+    if (this.elements.submitBlockedCard) {
+      this.elements.submitBlockedCard.remove();
     }
 
+    const blockingList = decision?.blockingFields || [];
+    const safeSummary = decision?.reasons?.[0] || 'Submission blocked';
+    const card = document.createElement('div');
+    card.id = 'guard-submit-blocked-card';
+    card.className = 'guard-submit-blocked-card';
+    card.setAttribute('role', 'alert');
+
+    const listHtml = blockingList.length > 0
+      ? `<ul>${blockingList.map((item) => {
+          const label = item.displayName || item.field || 'Issue';
+          const formVal = item.formValue ? `: ${this.escapeHtml(String(item.formValue))}` : '';
+          const docVal = item.documentValue ? ` / ${this.escapeHtml(String(item.documentValue))}` : '';
+          const message = item.message || item.displayName || 'Issue requires attention';
+          const action = item.suggestedAction ? ` — ${this.escapeHtml(String(item.suggestedAction))}` : '';
+          const detail = item.formValue || item.documentValue
+            ? ` <span class="guard-block-detail">${this.escapeHtml(label)}${formVal}${docVal}</span>`
+            : '';
+          return `<li>${this.escapeHtml(message)}${detail}${this.escapeHtml(action)}</li>`;
+        }).join('')}</ul>`
+      : `<p>${this.escapeHtml(safeSummary)}</p>`;
+
     card.innerHTML = `
-      <div class="guard-blocked-header">
-        <span class="guard-blocked-icon">🛑</span>
-        <div class="guard-blocked-title-wrap">
-          <div class="guard-blocked-title" id="guard-submit-blocked-title">Submission blocked</div>
-          <div class="guard-blocked-subtitle">Please resolve the following issue${issues.length === 1 ? '' : 's'} before submitting:</div>
-        </div>
-        <span class="guard-blocked-badge">BLOCKED</span>
-      </div>
-      <div class="guard-blocked-list">
-        ${issuesHtml}
-      </div>
-      <div class="guard-blocked-actions">
-        <button type="button" class="guard-btn-review" id="guard-btn-dismiss-blocked">Review Form</button>
+      <div class="guard-submit-blocked-header">Submission blocked</div>
+      <div class="guard-submit-blocked-body">
+        ${listHtml}
       </div>
     `;
 
-    const submitBtn = formElement.querySelector('#submit-application') || formElement.querySelector('button[type="submit"]');
-    if (submitBtn) {
-      formElement.insertBefore(card, submitBtn);
+    const form = document.getElementById('scholarship-form') || document.querySelector('form');
+    if (form) {
+      form.appendChild(card);
     } else {
-      formElement.appendChild(card);
-    }
-
-    const dismissBtn = card.querySelector('#guard-btn-dismiss-blocked');
-    if (dismissBtn) {
-      dismissBtn.addEventListener('click', () => {
-        this.hideSubmitBlocked();
-      });
+      document.body.appendChild(card);
     }
 
     this.elements.submitBlockedCard = card;
 
-    if (this.elements.overallBanner) {
-      this.elements.overallBanner.className = 'guard-overall-banner action-required mismatch';
-      const bTitle = this.elements.overallBanner.querySelector('#guard-banner-title');
-      const bBadge = this.elements.overallBanner.querySelector('#guard-banner-badge');
-      if (bTitle) bTitle.textContent = '✕ ACTION REQUIRED — Submission Blocked';
-      if (bBadge) bBadge.textContent = 'BLOCKED';
-    }
+    this.showErrorPopup(decision);
   }
 
   // Hides the blocked submission summary
   hideSubmitBlocked() {
     if (typeof document === 'undefined') return;
 
-    this.hideErrorPopup();
-
     if (this.elements.submitBlockedCard) {
       this.elements.submitBlockedCard.remove();
       this.elements.submitBlockedCard = null;
     }
 
-    const existing = document.getElementById('guard-submit-blocked-card');
-    if (existing) {
-      existing.remove();
+    const legacyCard = document.getElementById('guard-submit-blocked-card');
+    if (legacyCard) {
+      legacyCard.remove();
     }
+
+    this.hideErrorPopup();
   }
 
   // Cleans up all injected elements from the DOM
@@ -1082,20 +1136,18 @@ class InPageUI {
     this.hideErrorPopup();
     if (typeof document === 'undefined') return;
 
-    this.hideSubmitBlocked();
-
     if (this.elements.overallBanner) {
       this.elements.overallBanner.remove();
       this.elements.overallBanner = null;
     }
 
-    Object.keys(this.elements.fieldBadges).forEach((k) => {
+    Object.keys(this.elements.fieldBadges || {}).forEach((k) => {
       const el = this.elements.fieldBadges[k];
       if (el) el.remove();
     });
     this.elements.fieldBadges = {};
 
-    Object.keys(this.elements.inlinePanels).forEach((k) => {
+    Object.keys(this.elements.inlinePanels || {}).forEach((k) => {
       const el = this.elements.inlinePanels[k];
       if (el) el.remove();
     });
@@ -1106,7 +1158,6 @@ class InPageUI {
       this.elements.documentCard = null;
     }
 
-    // Also remove any orphaned injected nodes
     document.querySelectorAll('.guard-overall-banner, .guard-field-badge, .guard-inline-panel, .guard-doc-status-card, .guard-submit-blocked-card').forEach((node) => {
       node.remove();
     });

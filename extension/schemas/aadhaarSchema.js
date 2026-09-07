@@ -1,9 +1,10 @@
-// Pre-Submission Error Guard - Income Certificate Schema (Phase 8)
-// Declarative validation schema for Income Certificate
+// Pre-Submission Error Guard - Aadhaar Card Schema (Phase 8)
+// Declarative validation schema for Aadhaar Identity Card
 
-const incomeCertificateSchema = {
-  documentType: 'incomeCertificate',
-  displayName: 'Income Certificate',
+const aadhaarSchema = {
+  documentType: 'aadhar',
+  displayName: 'Aadhaar Card',
+  aliases: ['aadharCard', 'aadhaar', 'aadhaarCard', 'aadhar-card', 'aadhaar-card'],
   fields: [
     {
       id: 'name',
@@ -13,19 +14,14 @@ const incomeCertificateSchema = {
       labels: [
         'Applicant Name',
         'Full Name',
-        'Candidate Name',
-        'Name of Applicant',
-        'Name of Candidate',
-        'Name of Student',
-        'Citizen Full Name',
         'Citizen Name',
-        'Student Name',
-        'Applicant\'s Name',
-        'Candidate\'s Name',
-        'Student',
-        'Applicant',
-        'Candidate',
-        'Name'
+        'Citizen Full Name',
+        'Name of Resident',
+        'Resident Name',
+        'Name of Applicant',
+        'Candidate Name',
+        'Name',
+        'To'
       ],
       extraction: 'text',
       strategy: 'fuzzyNormalized',
@@ -41,9 +37,12 @@ const incomeCertificateSchema = {
       labels: [
         'Date of Birth',
         'DOB',
+        'DOB / Date of Birth',
         'D.O.B.',
         'Birth Date',
         'Date of Birth (DOB)',
+        'Year of Birth',
+        'YOB',
         'Birthdate'
       ],
       extraction: 'date',
@@ -54,22 +53,24 @@ const incomeCertificateSchema = {
     {
       id: 'certificateNumber',
       logicalName: 'certificateNumber',
-      name: 'Certificate Number',
+      name: 'Aadhaar / Certificate Number',
       formField: 'certificateNumber',
       labels: [
+        'Aadhaar No',
+        'Aadhaar Number',
+        'Aadhar No',
+        'Aadhar Number',
+        'Aadhaar Card No',
+        'Aadhaar',
+        'Aadhar',
+        'UID',
+        'Unique Identification',
+        'Unique Identification No',
+        'Unique Identification Number',
+        'VID',
         'Certificate No',
         'Certificate Number',
-        'Cert No',
-        'Certificate ID',
-        'Certificate Code',
-        'Application No',
-        'Application Number',
-        'Registration No',
-        'Registration Number',
-        'Reg No',
-        'Cert ID',
-        'Cert. No.',
-        'Cert. No'
+        'Cert No'
       ],
       extraction: 'text',
       strategy: 'exactNormalizedString',
@@ -93,8 +94,11 @@ const incomeCertificateSchema = {
   }
 };
 
+const aadharSchema = aadhaarSchema;
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { incomeCertificateSchema };
+  module.exports = { aadhaarSchema, aadharSchema };
 } else if (typeof globalThis !== 'undefined') {
-  globalThis.incomeCertificateSchema = incomeCertificateSchema;
+  globalThis.aadhaarSchema = aadhaarSchema;
+  globalThis.aadharSchema = aadharSchema;
 }

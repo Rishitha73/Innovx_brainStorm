@@ -61,23 +61,19 @@ class SubmitGuard {
     const currentStatus = status || (typeof this.getPortalStatus === 'function' ? this.getPortalStatus() : null);
     const decision = this.evaluate(currentStatus);
 
+    btn.disabled = false;
+    btn.removeAttribute('disabled');
+    btn.setAttribute('aria-disabled', 'false');
+    btn.classList.remove('guard-submit-disabled');
+    btn.classList.add('guard-submit-enabled');
+
     if (decision.allowed) {
-      btn.disabled = false;
-      btn.removeAttribute('disabled');
-      btn.classList.remove('guard-submit-disabled');
-      btn.classList.add('guard-submit-enabled');
-      btn.setAttribute('aria-disabled', 'false');
       btn.title = 'All checks pass. Click to submit application.';
       if (this.inPageUI && typeof this.inPageUI.hideErrorPopup === 'function') {
         this.inPageUI.hideErrorPopup();
       }
     } else {
-      btn.disabled = true;
-      btn.setAttribute('disabled', 'true');
-      btn.classList.add('guard-submit-disabled');
-      btn.classList.remove('guard-submit-enabled');
-      btn.setAttribute('aria-disabled', 'true');
-      btn.title = decision.reasons?.[0] || 'Submission disabled due to unresolved issues.';
+      btn.title = 'Click to submit application.';
     }
 
     return decision;
@@ -95,22 +91,16 @@ class SubmitGuard {
     // Use capture phase so we intercept before host form / React submit handlers
     this.formElement.addEventListener('submit', this.boundSubmitHandler, true);
 
-    // Attach click handler on submit button to capture clicks when disabled
+    // Attach click handler on submit button
     const selector = this.portalConfig?.submitSelector || '#submit-application';
     const submitBtn = this.formElement.querySelector(selector) || this.formElement.querySelector('button[type="submit"]');
     if (submitBtn) {
       this.submitButton = submitBtn;
-      this.boundButtonClickHandler = (e) => {
-        if (this.submitButton && this.submitButton.disabled) {
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-          const status = typeof this.getPortalStatus === 'function' ? this.getPortalStatus() : null;
-          const decision = this.evaluate(status);
-          this.blockSubmission(decision);
-        }
-      };
-      this.submitButton.addEventListener('click', this.boundButtonClickHandler, true);
+      this.submitButton.disabled = false;
+      this.submitButton.removeAttribute('disabled');
+      this.submitButton.classList.remove('guard-submit-disabled');
+      this.submitButton.classList.add('guard-submit-enabled');
+      this.submitButton.setAttribute('aria-disabled', 'false');
     }
 
     // Initialize submit button state
@@ -205,7 +195,7 @@ class SubmitGuard {
     }
   }
 
-  // Evaluates application status against the 11 strict blocking conditions
+  // Evaluates application status against blocking conditions
   evaluate(status) {
     const reasons = [];
     const blockingFields = [];
@@ -227,6 +217,27 @@ class SubmitGuard {
     const ocr = doc.ocr || {};
     const verif = status.verification || {};
     const fields = verif.fields || {};
+
+    // ── INPUT VALIDATION BLOCKING CONDITIONS (highest priority) ──────────────
+    const inputErrors = status.inputErrors || {};
+    const inputErrorList = Object.values(inputErrors).sort((a, b) => (a.priority || 99) - (b.priority || 99));
+    const inputFieldDisplay = {
+      name: 'Full Name',
+      dob: 'Date of Birth',
+      mobile: 'Mobile Number',
+      email: 'Email Address',
+      certificateNumber: 'Certificate Number'
+    };
+    inputErrorList.forEach((err) => {
+      const displayName = inputFieldDisplay[err.field] || err.field;
+      reasons.push(err.errorMessage || `${displayName} is invalid.`);
+      blockingFields.push({
+        field: err.field,
+        displayName,
+        type: err.errorCode || 'INVALID_INPUT',
+        message: err.errorMessage || `${displayName} is invalid.`
+      });
+    });
 
     // Condition 1: Document Type must be selected
     if (!docType || String(docType).trim() === '' || verif.overallStatus === 'WAITING_FOR_TYPE' || verif.status === 'waiting_for_schema') {
@@ -385,9 +396,21 @@ class SubmitGuard {
 
     this.updateSubmitButtonState();
 
-    // Hide any previous blocked UI
+    // Hide any previous blocked UI & error popup
     if (this.inPageUI && typeof this.inPageUI.hideSubmitBlocked === 'function') {
       this.inPageUI.hideSubmitBlocked();
+    }
+    if (this.inPageUI && typeof this.inPageUI.hideErrorPopup === 'function') {
+      this.inPageUI.hideErrorPopup();
+    }
+
+    // Clear any invalid field highlights from DOM
+    const doc = (typeof document !== 'undefined') ? document : (typeof globalThis !== 'undefined' ? globalThis.document : null);
+    if (doc) {
+      doc.querySelectorAll('.guard-field-invalid').forEach((el) => {
+        el.classList.remove('guard-field-invalid');
+        el.removeAttribute('aria-invalid');
+      });
     }
 
     // Set single-use bypass flag
@@ -423,6 +446,29 @@ class SubmitGuard {
     console.warn('[Submit Guard] ✕ Submission blocked:', decision.reasons);
 
     this.updateSubmitButtonState();
+
+    // Mark invalid fields on DOM
+    const doc = (typeof document !== 'undefined') ? document : (typeof globalThis !== 'undefined' ? globalThis.document : null);
+    if (doc && decision.blockingFields) {
+      const selectorMap = {
+        name: '#applicant-name',
+        dob: '#applicant-dob',
+        mobile: '#applicant-mobile',
+        email: '#applicant-email',
+        certificateNumber: '#cert-number',
+        documentType: '#document-type',
+        documentUpload: '#upload-certificate'
+      };
+      decision.blockingFields.forEach((b) => {
+        if (b.field && selectorMap[b.field]) {
+          const el = doc.querySelector(selectorMap[b.field]);
+          if (el) {
+            el.classList.add('guard-field-invalid');
+            el.setAttribute('aria-invalid', 'true');
+          }
+        }
+      });
+    }
 
     if (this.inPageUI && typeof this.inPageUI.renderSubmitBlocked === 'function') {
       this.inPageUI.renderSubmitBlocked(decision);

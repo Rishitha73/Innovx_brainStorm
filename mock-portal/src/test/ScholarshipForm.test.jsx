@@ -38,22 +38,21 @@ describe('Phase 0: Mock Scholarship Application Portal', () => {
     expect(formElement).toBeInTheDocument();
   });
 
-  it('contains the three required document-type options with Income Certificate as default', () => {
+  it('contains the three required document-type options', () => {
     render(<App />);
 
     const docTypeSelect = document.getElementById('document-type');
-    expect(docTypeSelect.value).toBe('incomeCertificate');
+    // Default is blank (placeholder prompt)
+    expect(docTypeSelect.value).toBe('');
 
     const options = Array.from(docTypeSelect.options).map((opt) => ({
       value: opt.value,
-      text: opt.textContent
+      text: opt.textContent.trim()
     }));
 
-    expect(options).toEqual([
-      { value: 'incomeCertificate', text: 'Income Certificate' },
-      { value: 'communityCertificate', text: 'Community Certificate' },
-      { value: 'residenceCertificate', text: 'Residence Certificate' }
-    ]);
+    expect(options).toContainEqual({ value: 'incomeCertificate', text: 'Income Certificate' });
+    expect(options).toContainEqual({ value: 'communityCertificate', text: 'Community Certificate' });
+    expect(options).toContainEqual({ value: 'residenceCertificate', text: 'Residence Certificate' });
   });
 
   it('accepts text input in Full Name, DOB, and Certificate Number fields', async () => {
@@ -108,12 +107,14 @@ describe('Phase 0: Mock Scholarship Application Portal', () => {
     const nameInput = document.getElementById('applicant-name');
     const dobInput = document.getElementById('applicant-dob');
     const certNumberInput = document.getElementById('cert-number');
+    const docTypeSelect = document.getElementById('document-type');
     const uploadInput = document.getElementById('upload-certificate');
     const submitBtn = document.getElementById('submit-application');
 
     await user.type(nameInput, 'Rohan Sharma');
     fireEvent.change(dobInput, { target: { value: '2003-08-15' } });
     await user.type(certNumberInput, 'INC-2024-98741');
+    await user.selectOptions(docTypeSelect, 'incomeCertificate');
 
     const testFile = new File(['mock pdf bytes'], 'income_cert.pdf', {
       type: 'application/pdf'

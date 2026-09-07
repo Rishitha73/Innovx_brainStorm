@@ -5,8 +5,12 @@ import TestDataHelper from './components/TestDataHelper';
 const INITIAL_FORM_STATE = {
   name: '',
   dob: '',
+  gender: '',
+  mobile: '',
+  email: '',
   certificateNumber: '',
-  documentType: 'incomeCertificate'
+  documentType: '',
+  certIssueDate: ''
 };
 
 export default function App() {

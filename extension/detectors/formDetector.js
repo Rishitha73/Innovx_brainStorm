@@ -19,6 +19,10 @@ class FormDetector {
       el = doc.querySelector('#cert-num');
     } else if (!el && selector === '#cert-num') {
       el = doc.querySelector('#cert-number');
+    } else if (!el && (selector === '#applicant-mobile' || selector === '#mobile')) {
+      el = doc.querySelector('#applicant-mobile, [name="mobile"], #mobile');
+    } else if (!el && (selector === '#applicant-email' || selector === '#email')) {
+      el = doc.querySelector('#applicant-email, [name="email"], #email');
     }
     return el;
   }
@@ -33,6 +37,32 @@ class FormDetector {
         type: 'select'
       });
     }
+
+    // Automatically detect standard inputs (like mobile and email) if present in the live DOM
+    const doc = (typeof document !== 'undefined') ? document : (typeof globalThis !== 'undefined' ? globalThis.document : null);
+    if (doc) {
+      if (!fields.some((f) => f.logicalName === 'mobile')) {
+        const mobileEl = doc.querySelector('#applicant-mobile, [name="mobile"], #mobile');
+        if (mobileEl) {
+          fields.push({
+            logicalName: 'mobile',
+            selector: mobileEl.id ? `#${mobileEl.id}` : (mobileEl.name ? `[name="${mobileEl.name}"]` : '#applicant-mobile'),
+            type: 'tel'
+          });
+        }
+      }
+      if (!fields.some((f) => f.logicalName === 'email')) {
+        const emailEl = doc.querySelector('#applicant-email, [name="email"], #email');
+        if (emailEl) {
+          fields.push({
+            logicalName: 'email',
+            selector: emailEl.id ? `#${emailEl.id}` : (emailEl.name ? `[name="${emailEl.name}"]` : '#applicant-email'),
+            type: 'email'
+          });
+        }
+      }
+    }
+
     return fields;
   }
 
@@ -199,7 +229,9 @@ class FormDetector {
       const targetId = target.id ? `#${target.id}` : '';
       const isMatch =
         (targetId && (targetId === selector || (selector === '#cert-number' && targetId === '#cert-num') || (selector === '#cert-num' && targetId === '#cert-number'))) ||
-        (typeof target.matches === 'function' && (target.matches(selector) || (selector === '#cert-number' && target.matches('#cert-num')) || (selector === '#cert-num' && target.matches('#cert-number'))));
+        (typeof target.matches === 'function' && (target.matches(selector) || (selector === '#cert-number' && target.matches('#cert-num')) || (selector === '#cert-num' && target.matches('#cert-number')))) ||
+        (logicalName === 'mobile' && (target.id === 'applicant-mobile' || target.name === 'mobile' || target.id === 'mobile')) ||
+        (logicalName === 'email' && (target.id === 'applicant-email' || target.name === 'email' || target.id === 'email'));
 
       if (isMatch) {
         const newValue = target.value !== undefined ? target.value : '';

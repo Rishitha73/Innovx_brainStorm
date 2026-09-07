@@ -6,8 +6,12 @@ const TEST_PRESETS = [
     data: {
       name: 'Rohan Sharma',
       dob: '2003-08-15',
+      gender: 'Male',
+      mobile: '9876543210',
+      email: 'rohan.sharma@example.com',
       certificateNumber: 'INC-2024-98741',
-      documentType: 'incomeCertificate'
+      documentType: 'incomeCertificate',
+      certIssueDate: '2024-03-15'
     }
   },
   {
@@ -15,8 +19,12 @@ const TEST_PRESETS = [
     data: {
       name: 'Rohan Sharma',
       dob: '2004-12-25',
+      gender: 'Male',
+      mobile: '9876543210',
+      email: '',
       certificateNumber: 'INC-2024-98741',
-      documentType: 'incomeCertificate'
+      documentType: 'incomeCertificate',
+      certIssueDate: '2024-03-15'
     }
   },
   {
@@ -24,8 +32,12 @@ const TEST_PRESETS = [
     data: {
       name: 'Ananya Verma',
       dob: '2002-04-10',
+      gender: 'Female',
+      mobile: '9123456780',
+      email: 'ananya.verma@example.com',
       certificateNumber: 'COMM-2024-55412',
-      documentType: 'communityCertificate'
+      documentType: 'communityCertificate',
+      certIssueDate: '2024-01-20'
     }
   },
   {
@@ -33,8 +45,25 @@ const TEST_PRESETS = [
     data: {
       name: 'Kavita Patel',
       dob: '2001-11-30',
+      gender: 'Female',
+      mobile: '9988776655',
+      email: '',
       certificateNumber: 'RES-2024-11234',
-      documentType: 'residenceCertificate'
+      documentType: 'residenceCertificate',
+      certIssueDate: '2023-12-01'
+    }
+  },
+  {
+    label: 'Aadhaar Card Sample',
+    data: {
+      name: 'Rohan Sharma',
+      dob: '2003-08-15',
+      gender: 'Male',
+      mobile: '9876543210',
+      email: 'rohan.sharma@example.com',
+      certificateNumber: '9876 5432 1098',
+      documentType: 'aadhar',
+      certIssueDate: '2023-05-12'
     }
   }
 ];
@@ -66,6 +95,23 @@ export default function TestDataHelper({ onApplyPreset, onReset }) {
       ctx.strokeStyle = '#1e3a8a';
       ctx.lineWidth = 4;
       ctx.strokeRect(60, 40, width - 120, height - 80);
+    } else if (sampleType === 'aadhaar') {
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 26px sans-serif';
+      ctx.fillText('UNIQUE IDENTIFICATION AUTHORITY OF INDIA', 100, 90);
+      ctx.font = 'bold 20px sans-serif';
+      ctx.fillText('GOVERNMENT OF INDIA', 100, 130);
+      ctx.font = '20px sans-serif';
+      ctx.fillText('Name: Rohan Sharma', 100, 190);
+      ctx.fillText('DOB: 15/08/2003', 100, 250);
+      ctx.fillText('Gender: Male', 100, 310);
+      ctx.font = 'bold 24px sans-serif';
+      ctx.fillText('Aadhaar No: 9876 5432 1098', 100, 380);
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(50, 40, width - 100, height - 80);
     } else if (sampleType === 'mismatch') {
       ctx.fillStyle = '#f8fafc';
       ctx.fillRect(0, 0, width, height);
@@ -229,6 +275,15 @@ export default function TestDataHelper({ onApplyPreset, onReset }) {
             title="Attach document with DOB mismatch (25-12-2004)"
           >
             <span>📅</span> DOB Mismatch
+          </button>
+          <button
+            type="button"
+            id="btn-sample-aadhaar"
+            className="preset-btn"
+            onClick={() => attachSampleDocument('aadhaar', 'aadhaar_card_sample.png')}
+            title="Attach matching Aadhaar Card (Rohan Sharma, 15/08/2003, 9876 5432 1098)"
+          >
+            <span>🆔</span> Aadhaar Doc (MATCH)
           </button>
         </div>
       </div>

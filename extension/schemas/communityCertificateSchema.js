@@ -12,9 +12,14 @@ const communityCertificateSchema = {
       formField: 'name',
       labels: [
         'Applicant Name',
+        'Full Name',
         'Candidate Name',
         'Name of Candidate',
         'Name of Applicant',
+        'Citizen Full Name',
+        'Citizen Name',
+        'Applicant\'s Name',
+        'Candidate\'s Name',
         'Applicant',
         'Candidate',
         'Name'
@@ -36,8 +41,14 @@ const communityCertificateSchema = {
         'Cert No',
         'Community Certificate No',
         'Caste Certificate No',
+        'Application No',
+        'Application Number',
+        'Registration No',
+        'Registration Number',
+        'Reg No',
         'Cert ID',
-        'Application No'
+        'Cert. No.',
+        'Cert. No'
       ],
       extraction: 'text',
       strategy: 'exactNormalizedString',

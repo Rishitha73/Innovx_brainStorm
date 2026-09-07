@@ -23,6 +23,7 @@ let SubmitGuardClass = (typeof SubmitGuard === 'function') ? SubmitGuard : (type
 let getSchemaFn = (typeof getSchema === 'function') ? getSchema : (typeof globalThis !== 'undefined' ? (globalThis.getSchema || (globalThis.SchemaRegistry && globalThis.SchemaRegistry.getSchema)) : null);
 let getAllSchemasFn = (typeof getAllSchemas === 'function') ? getAllSchemas : (typeof globalThis !== 'undefined' ? (globalThis.getAllSchemas || (globalThis.SchemaRegistry && globalThis.SchemaRegistry.getAllSchemas)) : null);
 let debounceFn = (typeof debounce === 'function') ? debounce : (typeof globalThis !== 'undefined' ? globalThis.debounce : null);
+let validateAllFieldsFn = (typeof validateAllFields === 'function') ? validateAllFields : (typeof globalThis !== 'undefined' ? globalThis.validateAllFields : null);
 
 if (typeof require !== 'undefined') {
   try {
@@ -93,6 +94,12 @@ if (typeof require !== 'undefined') {
       debounceFn = db.debounce || debounceFn;
     }
   } catch (e) {}
+  try {
+    if (!validateAllFieldsFn) {
+      const iv = require('./validators/inputValidator.js');
+      validateAllFieldsFn = iv.validateAllFields || validateAllFieldsFn;
+    }
+  } catch (e) {}
 }
 
 // Central in-memory state for the active tab (Form State, Document State, and Cross-Verification)
@@ -109,6 +116,7 @@ let currentPortalStatus = {
   missingCount: 0,
   formFields: {},
   form: {},
+  inputErrors: {},
   document: {
     file: null,
     fileValidation: {
@@ -189,6 +197,7 @@ function runCrossVerification() {
     activeSchema || (docType ? docType : null)
   );
   currentPortalStatus.verification = verif;
+  currentPortalStatus.inputErrors = applyInputValidation(formState, false);
   currentPortalStatus.timestamp = Date.now();
   if (activeInPageUI && typeof activeInPageUI.render === 'function') {
     activeInPageUI.render(currentPortalStatus);
@@ -214,6 +223,46 @@ function getDebouncedValidator(fieldName) {
   return debouncedFieldValidators[fieldName];
 }
 
+// Phase 12: Apply input-level validation (format/presence) and update DOM field state
+function applyInputValidation(formState, markDom = false) {
+  const fn = (typeof validateAllFields === 'function')
+    ? validateAllFields
+    : (validateAllFieldsFn || (typeof globalThis !== 'undefined' ? globalThis.validateAllFields : null));
+
+  if (!fn) return {};
+
+  const errors = fn(formState);
+  const errorMap = {};
+  errors.forEach((e) => { errorMap[e.field] = e; });
+
+  // Apply/remove guard-field-invalid CSS class on affected DOM inputs
+  const doc = (typeof document !== 'undefined') ? document : (typeof globalThis !== 'undefined' ? globalThis.document : null);
+  if (doc) {
+    const selectorMap = {
+      name: '#applicant-name',
+      dob: '#applicant-dob',
+      mobile: '#applicant-mobile',
+      email: '#applicant-email',
+      certificateNumber: '#cert-number'
+    };
+    Object.keys(selectorMap).forEach((field) => {
+      const el = doc.querySelector(selectorMap[field]);
+      if (!el) return;
+      if (errorMap[field]) {
+        if (markDom) {
+          el.classList.add('guard-field-invalid');
+          el.setAttribute('aria-invalid', 'true');
+        }
+      } else {
+        el.classList.remove('guard-field-invalid');
+        el.removeAttribute('aria-invalid');
+      }
+    });
+  }
+
+  return errorMap;
+}
+
 // Phase 10: Field-level revalidation without re-running OCR or other fields
 function revalidateField(changedField, newValue) {
   if (!activeCrossVerifier && CrossVerifierClass) {
@@ -222,6 +271,10 @@ function revalidateField(changedField, newValue) {
   if (!activeCrossVerifier) {
     return currentPortalStatus.verification;
   }
+
+  // Run input-level validation across all fields
+  const formState = activeFormDetector ? activeFormDetector.getFormState(false) : (currentPortalStatus.formFields || {});
+  currentPortalStatus.inputErrors = applyInputValidation(formState, false);
 
   const ocrState = currentPortalStatus.document ? currentPortalStatus.document.ocr : null;
   const docType = currentPortalStatus.documentType;
@@ -406,13 +459,6 @@ function initializePortalConnection() {
         }
 
         // Text input fields: debounce revalidation by 300ms
-        // Immediately disable submit button while revalidation is in-flight/debounced
-        if (activeSubmitGuard && typeof activeSubmitGuard.updateSubmitButtonState === 'function') {
-          activeSubmitGuard.updateSubmitButtonState({
-            ...currentPortalStatus,
-            verification: { ...currentPortalStatus.verification, status: 'processing' }
-          });
-        }
         const rawVal = typeof fieldData === 'object' ? fieldData.value : fieldData;
         const debouncedValidator = getDebouncedValidator(changedField);
         if (debouncedValidator) {
@@ -606,7 +652,10 @@ function initializePortalConnection() {
             const syncedDoc = await activeFileDetector.syncWithDom();
             currentPortalStatus.document = syncedDoc;
           }
-          // 4. Run Cross-Verification on synchronized state
+          // 4. Mark DOM with input validation errors on submit attempt
+          const formState = currentPortalStatus.formFields || {};
+          currentPortalStatus.inputErrors = applyInputValidation(formState, true);
+          // 5. Run Cross-Verification on synchronized state
           return runCrossVerification();
         }
       });
@@ -796,6 +845,7 @@ if (typeof module !== 'undefined' && module.exports) {
     initializePortalConnection,
     runCrossVerification,
     revalidateField,
+    applyInputValidation,
     getDebouncedValidator,
     debouncedFieldValidators,
     getInstrumentation,
