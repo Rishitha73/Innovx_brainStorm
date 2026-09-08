@@ -592,6 +592,15 @@ class InPageUI {
 
       // Multiple issues — build prioritised bullet list
       if (bfs.length > 1) {
+        const unknownType = bfs.find((field) => field.type === 'DOCUMENT_TYPE_UNVERIFIED');
+        if (unknownType) {
+          return {
+            title: 'Manual Review Required',
+            message: unknownType.message || 'Could not determine the uploaded document type from its readable text.',
+            action: 'Review the document yourself, then continue if it is the correct certificate.',
+            manualReview: true
+          };
+        }
         const bullets = [];
         bfs.forEach((f) => {
           const inputMapped = mapInputErrorType(f);
@@ -601,6 +610,10 @@ class InPageUI {
           }
           if (f.type === 'MISSING_TYPE') {
             bullets.push('Please select the certificate type.');
+          } else if (f.type === 'DOCUMENT_TYPE_MISMATCH') {
+            bullets.push(f.message || 'The uploaded document does not match the selected certificate type.');
+          } else if (f.type === 'DOCUMENT_TYPE_UNVERIFIED') {
+            bullets.push(f.message || 'The uploaded document type could not be verified.');
           } else if (f.type === 'MISSING_DOCUMENT') {
             bullets.push('Please upload the required certificate.');
           } else if (f.type === 'QUALITY_FAILED') {
@@ -655,6 +668,21 @@ class InPageUI {
           title: 'Submission blocked',
           message: 'Please select the certificate type.',
           action: 'Choose a certificate type from the dropdown to continue.'
+        };
+      }
+      if (single.type === 'DOCUMENT_TYPE_MISMATCH') {
+        return {
+          title: 'Wrong Document Type',
+          message: single.message || 'The uploaded document does not match the selected certificate type.',
+          action: 'Upload the correct certificate for the selected document type.'
+        };
+      }
+      if (single.type === 'DOCUMENT_TYPE_UNVERIFIED') {
+        return {
+          title: 'Manual Review Required',
+          message: single.message || 'Could not determine the uploaded document type from its readable text.',
+          action: 'Review the document yourself, then continue if it is the correct certificate.',
+          manualReview: true
         };
       }
       if (single.type === 'SCHEMA_UNAVAILABLE') {
@@ -854,7 +882,7 @@ class InPageUI {
       return {
         title: 'Submission blocked',
         message: 'The uploaded file could not be accepted.',
-        action: (fileVal.reasons && fileVal.reasons[0]) || 'Please upload a valid PDF or image file under 5 MB.'
+        action: (fileVal.reasons && fileVal.reasons[0]) || 'Please upload a valid PDF or image file under 1 MB.'
       };
     }
 
@@ -957,6 +985,25 @@ class InPageUI {
   // Shows the CENTERED error modal overlay.
   // Uses role="dialog" aria-modal="true" per ARIA spec.
   // Only one modal can be open at a time — re-uses existing if already present.
+  getTrustedCompressorUrl(file) {
+    if (file?.type?.includes('pdf') || file?.name?.toLowerCase().endsWith('.pdf')) {
+      return 'https://www.pdf2go.com/compress-pdf';
+    }
+    if (file?.type?.startsWith('image/')) {
+      return 'https://imagecompressor.11zon.com/en/';
+    }
+    return null;
+  }
+
+  getCompressorInstruction(file) {
+    const docType = document.querySelector('#document-type')?.value;
+    const isPdf = file?.type?.includes('pdf') || file?.name?.toLowerCase().endsWith('.pdf');
+    if (isPdf && (docType === 'aadhar' || docType === 'aadhaar' || docType === 'aadharCard')) {
+      return 'The PDF may have encryption or usage restrictions even if it does not ask for a password. Open it locally and use Print > Save as PDF to create a fresh copy, or upload the original Aadhaar image. Then select the new file here.';
+    }
+    return 'Set the target size to 1 MB, download the result, then select the new file here.';
+  }
+
   showErrorPopup(decisionOrStatus) {
     if (typeof document === 'undefined') return;
 
@@ -982,6 +1029,15 @@ class InPageUI {
     if (info.action) {
       bodyHtml += `<div class="guard-popup-action-hint">${this.escapeHtml(info.action)}</div>`;
     }
+    const selectedFile = document.querySelector('input[type="file"]')?.files?.[0];
+    const compressorUrl = selectedFile?.size > 1 * 1024 * 1024 ? this.getTrustedCompressorUrl(selectedFile) : null;
+    if (compressorUrl) {
+      bodyHtml += `
+        <div class="guard-popup-compressor">
+          <a href="${compressorUrl}" target="_blank" rel="noopener noreferrer">Open target-size compressor</a>
+          <span>${this.escapeHtml(this.getCompressorInstruction(selectedFile))}</span>
+        </div>`;
+    }
 
     backdrop.innerHTML = `
       <div
@@ -1005,7 +1061,7 @@ class InPageUI {
           ${bodyHtml}
         </div>
         <div class="guard-modal-footer">
-          <button type="button" class="guard-modal-action-btn" id="guard-modal-action-btn">Close</button>
+          <button type="button" class="guard-modal-action-btn" id="guard-modal-action-btn">${info.manualReview ? 'Continue and Submit' : 'Close'}</button>
         </div>
       </div>
     `;
@@ -1025,7 +1081,16 @@ class InPageUI {
     }
     const actionBtn = backdrop.querySelector('#guard-modal-action-btn');
     if (actionBtn) {
-      actionBtn.addEventListener('click', () => this.hideErrorPopup());
+      actionBtn.addEventListener('click', () => {
+        if (!info.manualReview) {
+          this.hideErrorPopup();
+          return;
+        }
+        document.dispatchEvent(new CustomEvent('guard-manual-review-approved', { bubbles: true }));
+        this.hideErrorPopup();
+        const submitButton = document.querySelector('#submit-application, button[type="submit"], input[type="submit"]');
+        submitButton?.click();
+      });
     }
 
     // Backdrop click closes modal

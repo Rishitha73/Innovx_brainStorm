@@ -82,6 +82,70 @@ class FileDetector {
     this.ocrEngine = ocr;
   }
 
+  getUploadInputs(doc) {
+    if (!doc) return [];
+
+    const scope = this.portalConfig?.formSelector
+      ? (doc.querySelector(this.portalConfig.formSelector) || doc)
+      : doc;
+    const inputs = new Set();
+    const configuredSelector = this.portalConfig?.documentUpload?.selector;
+
+    if (configuredSelector) {
+      const configuredInput = doc.querySelector(configuredSelector);
+      if (configuredInput && configuredInput.matches?.('input[type="file"]')) {
+        inputs.add(configuredInput);
+      }
+    }
+
+    scope.querySelectorAll('input[type="file"]').forEach((input) => inputs.add(input));
+    return [...inputs];
+  }
+
+  getSelectedFile(doc) {
+    return this.getUploadInputs(doc).map((input) => input.files?.[0]).find(Boolean) || null;
+  }
+
+  getDetectedFormat(file) {
+    const name = String(file?.name || '').toLowerCase();
+    const mime = String(file?.type || '').toLowerCase();
+    if (mime.includes('pdf') || name.endsWith('.pdf')) return 'pdf';
+    if (mime.includes('jpeg') || mime.includes('jpg') || /\.jpe?g$/.test(name)) return 'jpg';
+    if (mime.includes('png') || name.endsWith('.png')) return 'png';
+    if (mime.includes('gif') || name.endsWith('.gif')) return 'gif';
+    return '';
+  }
+
+  async extractPdfText(file) {
+    const pdfjs = this.qualityAnalyzer?.pdfLib || (typeof globalThis !== 'undefined' ? globalThis.pdfjsLib : null);
+    if (!pdfjs || typeof pdfjs.getDocument !== 'function' || !file || typeof file.arrayBuffer !== 'function') {
+      return '';
+    }
+
+    const arrayBuffer = await file.arrayBuffer();
+    const loadingTask = pdfjs.getDocument({
+      data: new Uint8Array(arrayBuffer),
+      useSystemFonts: true,
+      disableFontFace: true,
+      isEvalSupported: false
+    });
+    const pdf = await loadingTask.promise;
+    const pageTexts = [];
+
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+      const page = await pdf.getPage(pageNumber);
+      const textContent = await page.getTextContent();
+      const pageText = (textContent.items || [])
+        .map((item) => item.str || '')
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (pageText) pageTexts.push(pageText);
+    }
+
+    return pageTexts.join('\n').trim();
+  }
+
   initialize() {
     this.cleanup();
     this.fileState = {
@@ -109,12 +173,9 @@ class FileDetector {
     };
     this.currentFileRef = null;
 
-    if (!this.portalConfig || !this.portalConfig.documentUpload) {
-      return this.fileState;
-    }
-
-    const uploadSelector = this.portalConfig.documentUpload.selector || '#upload-certificate';
     const doc = (typeof document !== 'undefined') ? document : (typeof globalThis !== 'undefined' ? globalThis.document : null);
+    const uploadInputs = this.getUploadInputs(doc);
+    const uploadSelector = this.portalConfig?.documentUpload?.selector || 'input[type="file"]';
 
     const handleFileSelection = async (event) => {
       if (event && event._guardHandled) {
@@ -158,34 +219,36 @@ class FileDetector {
         return;
       }
 
+      if (this.currentFileRef === file) {
+        return;
+      }
+
       this.currentFileRef = file;
       console.log(`[File Detector] Detected file selection: "${file.name}" (${file.type}, ${file.size} bytes)`);
 
       await this.processFile(file);
     };
 
-    // 1. Direct listener on element if present in DOM
-    const inputElement = doc ? doc.querySelector(uploadSelector) : null;
-    if (inputElement) {
-      inputElement.addEventListener('change', handleFileSelection);
-      this.listeners.push({ element: inputElement, handler: handleFileSelection, event: 'change' });
+    // 1. Direct listeners for configured and discovered file inputs
+    if (uploadInputs.length > 0) {
+      uploadInputs.forEach((inputElement) => {
+        inputElement.addEventListener('change', handleFileSelection);
+        this.listeners.push({ element: inputElement, handler: handleFileSelection, event: 'change' });
 
-      if (inputElement.files && inputElement.files[0]) {
-        handleFileSelection({ target: inputElement });
-      }
+        if (inputElement.files && inputElement.files[0]) {
+          handleFileSelection({ target: inputElement });
+        }
+      });
     } else {
       console.warn(
-        `[Pre-Submission Error Guard] [WARN] File upload input not found on initial load: ${uploadSelector}`
+        `[Pre-Submission Error Guard] [WARN] File upload input not found initially: ${uploadSelector}`
       );
     }
 
-    // 2. Event Delegation on document in capture phase (immune to React re-mounts / DOM mutations)
+    // 2. Event Delegation on document in capture phase (supports dynamic forms)
     const delegatedChangeHandler = async (event) => {
-      if (
-        event.target &&
-        (event.target.id === 'upload-certificate' ||
-          (typeof event.target.matches === 'function' && event.target.matches(uploadSelector)))
-      ) {
+      const target = event.target;
+      if (target && typeof target.matches === 'function' && target.matches('input[type="file"]')) {
         await handleFileSelection(event);
       }
     };
@@ -233,7 +296,9 @@ class FileDetector {
       return;
     }
 
-    this.fileState.file = valResult.file;
+    this.fileState.file = valResult.file
+      ? { ...valResult.file, format: this.getDetectedFormat(file) }
+      : null;
     this.fileState.fileValidation = {
       passed: valResult.passed,
       reasons: valResult.reasons
@@ -329,6 +394,28 @@ class FileDetector {
     if (this.currentRunId !== runId) return;
     this.notifySubscribers();
 
+    // Prefer the PDF text layer for digitally generated documents.
+    const isPdf = this.getDetectedFormat(file) === 'pdf';
+    if (isPdf) {
+      try {
+        const pdfText = await this.extractPdfText(file);
+        if (this.currentRunId !== runId) return;
+        if (pdfText) {
+          this.fileState.ocr = {
+            status: 'succeeded',
+            text: pdfText,
+            confidence: 100,
+            reasons: []
+          };
+          console.log('[File Detector] PDF text layer extracted; image OCR skipped.');
+          this.notifySubscribers();
+          return;
+        }
+      } catch (pdfTextError) {
+        console.warn('[File Detector] PDF text-layer extraction unavailable; falling back to image OCR:', pdfTextError);
+      }
+    }
+
     // 3. OCR Pipeline (Phase 6)
     if (this.ocrEngine) {
       if (this.currentRunId !== runId) return;
@@ -353,10 +440,22 @@ class FileDetector {
             if (this.currentRunId !== runId) return;
             if (raster && (raster.canvas || raster.imageData)) {
               ocrInput = raster.canvas || raster.imageData;
+            } else if (isPdf) {
+              throw new Error('PDF could not be rendered into an image for OCR.');
             }
           } catch (rErr) {
             if (this.currentRunId !== runId) return;
             console.warn('[File Detector] Document rasterization error before OCR:', rErr);
+            if (isPdf) {
+              this.fileState.ocr = {
+                status: 'failed',
+                text: '',
+                confidence: 0,
+                reasons: [`Could not prepare PDF for OCR: ${rErr.message}`]
+              };
+              this.notifySubscribers();
+              return;
+            }
           }
         }
 
@@ -401,10 +500,8 @@ class FileDetector {
 
   // Synchronizes state with DOM (invoked before answering popup queries)
   async syncWithDom() {
-    const uploadSelector = this.portalConfig?.documentUpload?.selector || '#upload-certificate';
     const doc = (typeof document !== 'undefined') ? document : (typeof globalThis !== 'undefined' ? globalThis.document : null);
-    const inputElement = doc ? doc.querySelector(uploadSelector) : null;
-    const file = inputElement?.files?.[0] || null;
+    const file = this.getSelectedFile(doc);
 
     if (!file) {
       if (this.fileState.file !== null) {

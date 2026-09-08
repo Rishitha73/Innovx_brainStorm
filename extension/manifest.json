@@ -38,6 +38,7 @@
         "detectors/formDetector.js",
         "detectors/fileDetector.js",
         "ui/inPageUI.js",
+        "ui/sidebar.js",
         "guards/submitGuard.js",
         "content.js"
       ],
@@ -60,7 +61,6 @@
     }
   ],
   "action": {
-    "default_popup": "popup/popup.html",
     "default_title": "Pre-Submission Error Guard",
     "default_icon": {
       "16": "icons/icon16.png",

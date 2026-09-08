@@ -5,6 +5,11 @@ const aadhaarSchema = {
   documentType: 'aadhar',
   displayName: 'Aadhaar Card',
   aliases: ['aadharCard', 'aadhaar', 'aadhaarCard', 'aadhar-card', 'aadhaar-card'],
+  documentStructure: {
+    anyText: ['aadhaar', 'aadhar', 'unique identification', 'uid', 'vid'],
+    anyRegex: ['\\b\\d{4}\\s?\\d{4}\\s?\\d{4}\\b', '\\b\\d{12}\\b'],
+    requiredText: ['name']
+  },
   fields: [
     {
       id: 'name',
@@ -86,7 +91,7 @@ const aadhaarSchema = {
   ],
   fileRules: {
     allowedFormats: ['pdf', 'jpg', 'png'],
-    maxSizeMB: 2
+    maxSizeMB: 1
   },
   qualityRules: {
     minResolutionPx: 800,

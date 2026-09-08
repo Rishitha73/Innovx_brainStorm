@@ -4,6 +4,10 @@
 const residenceCertificateSchema = {
   documentType: 'residenceCertificate',
   displayName: 'Residence / Domicile Certificate',
+  documentStructure: {
+    anyText: ['residence certificate', 'domicile certificate', 'residential certificate', 'proof of residence'],
+    requiredText: ['certificate']
+  },
   fields: [
     {
       id: 'name',
@@ -55,7 +59,7 @@ const residenceCertificateSchema = {
   ],
   fileRules: {
     allowedFormats: ['pdf', 'jpg', 'png'],
-    maxSizeMB: 2
+    maxSizeMB: 1
   },
   qualityRules: {
     minResolutionPx: 800,

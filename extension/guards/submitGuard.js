@@ -261,6 +261,20 @@ class SubmitGuard {
       });
     }
 
+    // Condition 2b: Uploaded document must match the selected document type
+    const documentTypeCheck = verif.documentTypeCheck || {};
+    const manualReviewApproved = documentTypeCheck.status === 'NEEDS_REVIEW' && documentTypeCheck.manualReviewApproved === true;
+    if ((documentTypeCheck.status === 'MISMATCH' || documentTypeCheck.status === 'NEEDS_REVIEW') && !manualReviewApproved) {
+      const typeReason = documentTypeCheck.reason || 'Uploaded document type could not be verified.';
+      reasons.push(typeReason);
+      blockingFields.push({
+        field: 'documentUpload',
+        displayName: 'Certificate Document',
+        type: documentTypeCheck.status === 'MISMATCH' ? 'DOCUMENT_TYPE_MISMATCH' : 'DOCUMENT_TYPE_UNVERIFIED',
+        message: typeReason
+      });
+    }
+
     // Condition 3: Required document must be uploaded
     if (!file) {
       reasons.push('A supporting certificate document is required. Please upload your document.');
@@ -285,8 +299,11 @@ class SubmitGuard {
         });
       }
 
-      // Condition 5: Document visual quality check must not be failed
-      if (quality.status === 'failed' || quality.passed === false) {
+      // Condition 5: Document visual quality check must not be failed. Once
+      // the completed OCR identifies a wrong/unknown document, its quality
+      // detail is secondary noise and should not compete with that diagnosis.
+      const documentTypeIsInvalid = documentTypeCheck.status === 'MISMATCH' || documentTypeCheck.status === 'NEEDS_REVIEW';
+      if ((quality.status === 'failed' || quality.passed === false) && !documentTypeIsInvalid) {
         const qErr = (quality.reasons && quality.reasons.length > 0)
           ? quality.reasons.join(', ')
           : 'Document quality is too low or unreadable.';
@@ -340,6 +357,15 @@ class SubmitGuard {
       activeSchemaFields = Object.keys(fields);
     }
 
+    const documentTypeStatus = verif.documentTypeCheck?.status;
+    const canCompareFields = documentTypeStatus === undefined || documentTypeStatus === 'MATCH' || documentTypeStatus === 'PENDING';
+
+    if (!canCompareFields) {
+      // The document-type error is the primary diagnosis. Field-level OCR
+      // results from a different document would only add noise.
+      activeSchemaFields = [];
+    }
+
     activeSchemaFields.forEach((fieldName) => {
       const fData = fields[fieldName];
       const displayName = this.getFieldDisplayName(fieldName);
@@ -374,7 +400,7 @@ class SubmitGuard {
     });
 
     // Condition 10: Overall status must be MATCH or ALL_PASS
-    if (reasons.length === 0) {
+    if (reasons.length === 0 && !manualReviewApproved) {
       if (verif.overallStatus !== 'MATCH' && verif.overallStatus !== 'ALL_PASS') {
         reasons.push('Cross-verification is incomplete or could not verify credentials.');
       }
@@ -419,19 +445,12 @@ class SubmitGuard {
     // Trigger programmatic form submission
     if (this.formElement) {
       try {
-        let submitted = false;
-        if (typeof this.formElement.requestSubmit === 'function') {
-          try {
-            this.formElement.requestSubmit();
-            submitted = true;
-          } catch (reqErr) {
-            // e.g. JSDOM where requestSubmit is not implemented
-          }
-        }
-        if (!submitted) {
-          const submitEvt = new Event('submit', { bubbles: true, cancelable: true });
-          this.formElement.dispatchEvent(submitEvt);
-        }
+        // Dispatch the event directly so React/Vue/native submit listeners all
+        // receive the successful submission path. The one-time bypass prevents
+        // this event from re-entering the guard.
+        const submitEvt = new Event('submit', { bubbles: true, cancelable: true });
+        this.formElement.dispatchEvent(new CustomEvent('guard-submission-approved', { bubbles: true }));
+        this.formElement.dispatchEvent(submitEvt);
       } catch (e) {
         console.error('[Submit Guard] Error dispatching allowed form submission:', e);
       } finally {

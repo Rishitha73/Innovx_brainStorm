@@ -1,0 +1,12 @@
+Application ID: SCH-732148
+Submitted At: 08/09/2026, 11:51:05
+Applicant Name: Kummara Rishitha
+Date of Birth: 2007-03-07
+Gender: Male
+Mobile: 9876543210
+Email: rohan.sharma@example.com
+Certificate Number: 8256 6672 0575
+Document Type: Aadhaar Card
+Certificate Issue Date: 2024-03-15
+Uploaded Document: Kummara_Rishitha_Aadhaar_Card.pdf
+Document Size: 549.7 KB

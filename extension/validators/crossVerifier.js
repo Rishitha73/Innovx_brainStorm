@@ -124,12 +124,22 @@ class CrossVerifier {
       return null;
     }
 
+    // Aadhaar identifiers are more reliable than broad OCR label matches such as "Aadhaar".
+    if (fieldDef.id === 'certificateNumber' || fieldDef.logicalName === 'certificateNumber') {
+      const aadhaarPattern = /\b([0-9]{4}[ \t]?[0-9]{4}[ \t]?[0-9]{4})\b/;
+      const aadhaarMatch = text.match(aadhaarPattern);
+      if (aadhaarMatch && aadhaarMatch[1]) {
+        return aadhaarMatch[1].trim();
+      }
+    }
+
     // 2. Text / Identifier extraction regex anchored to field labels
     // 2a. Requires a delimiter (:, -, ., |) and captures value on same or next line
     const textLabelRegex = new RegExp(`(?:${labelPattern})\\s*[:\\-\\.\\|]\\s*(?:\\r?\\n)?\\s*([^\\r\\n]+)`, 'i');
     const textMatch = text.match(textLabelRegex);
     if (textMatch && textMatch[1]) {
       let candidate = textMatch[1].trim();
+      candidate = candidate.split(/\r?\n(?=\s*(?:Applicant|Candidate|Citizen|Date|DOB|Birth|Certificate|Cert|Address|Residential|Permanent|Current|Residence|Annual|Family|Income|Application|Registration|Issued|Gender|Father|Mother)\b)/i)[0].trim();
       // Remove any subsequent label keywords on the same line
       candidate = candidate.replace(/\s*(?:DOB|Date of Birth|Certificate|Cert No|Annual Income|Income|Address|Permanent Address).*/i, '').trim();
       // Clean leading and trailing punctuation
@@ -144,6 +154,7 @@ class CrossVerifier {
     const tableMatch = text.match(tableRegex);
     if (tableMatch && tableMatch[1]) {
       let candidate = tableMatch[1].trim();
+      candidate = candidate.split(/\r?\n(?=\s*(?:Applicant|Candidate|Citizen|Date|DOB|Birth|Certificate|Cert|Address|Residential|Permanent|Current|Residence|Annual|Family|Income|Application|Registration|Issued|Gender|Father|Mother)\b)/i)[0].trim();
       candidate = candidate.replace(/\s*(?:DOB|Date of Birth|Certificate|Cert No|Annual Income|Income|Address|Permanent Address).*/i, '').trim();
       candidate = candidate.replace(/^[\s|:;,"'-]+|[\s|:;,"'-]+$/g, '').trim();
       if (candidate.length > 0) {
@@ -151,13 +162,27 @@ class CrossVerifier {
       }
     }
 
+    // Noisy Aadhaar scans may omit the Name label. Infer a candidate only when
+    // the form already provides a name to compare against.
+    if ((fieldDef.id === 'name' || fieldDef.logicalName === 'name') && formValue && typeof formValue === 'string' && formValue.trim()) {
+      const excludedNameWords = new Set([
+        'aadhaar', 'aadhar', 'applicant', 'birth', 'certificate', 'citizen', 'date',
+        'government', 'india', 'identification', 'issued', 'name', 'number', 'resident',
+        'unique', 'uid', 'vid', 'year'
+      ]);
+      const nameCandidates = [...text.matchAll(/\b[A-Za-z]{2,}\s+[A-Za-z]{2,}\b/g)]
+        .map((match) => match[0].trim())
+        .filter((candidate) => !candidate.toLowerCase().split(/\s+/).some((word) => excludedNameWords.has(word)));
+      if (nameCandidates.length > 0) {
+        const target = this.normalizeText(formValue);
+        return nameCandidates
+          .map((candidate) => ({ candidate, score: this.calculateSimilarity(target, this.normalizeText(candidate)) }))
+          .sort((left, right) => right.score - left.score)[0].candidate;
+      }
+    }
+
     // 2c. Aadhaar / 12-digit identification pattern extraction fallback
     if (fieldDef.id === 'certificateNumber' || fieldDef.logicalName === 'certificateNumber') {
-      const aadhaarPattern = /\b([0-9]{4}\s[0-9]{4}\s[0-9]{4})\b/;
-      const aadhaarMatch = text.match(aadhaarPattern);
-      if (aadhaarMatch && aadhaarMatch[1]) {
-        return aadhaarMatch[1].trim();
-      }
       const aadhaarContinuous = /\b([0-9]{12})\b/;
       const contMatch = text.match(aadhaarContinuous);
       if (contMatch && contMatch[1]) {
@@ -300,6 +325,22 @@ class CrossVerifier {
     return null;
   }
 
+  getCanonicalDateCandidates(dateStr) {
+    if (!dateStr || typeof dateStr !== 'string') return [];
+    const candidates = new Set();
+    const canonical = this.parseCanonicalDate(dateStr);
+    if (canonical) candidates.add(canonical);
+
+    const ambiguousMatch = dateStr.trim().match(/^(0?[1-9]|1[0-2])[\/\-.](0?[1-9]|1[0-2])[\/\-.]([12][0-9]{3})$/);
+    if (ambiguousMatch) {
+      const first = String(parseInt(ambiguousMatch[1], 10)).padStart(2, '0');
+      const second = String(parseInt(ambiguousMatch[2], 10)).padStart(2, '0');
+      candidates.add(`${ambiguousMatch[3]}-${first}-${second}`);
+    }
+
+    return [...candidates];
+  }
+
   // Helper to extract string value from form state input (raw string or { value: '...' })
   getFieldValue(input) {
     if (input === null || input === undefined) return '';
@@ -384,15 +425,18 @@ class CrossVerifier {
 
     // --- Strategy 2: Exact Normalized Date Matching ---
     if (strategy === 'exactNormalizedDate' || strategy === 'exact-date' || fieldDef.id === 'dob' || fieldDef.logicalName === 'dob') {
-      const normFormDate = this.parseCanonicalDate(rawFormVal);
-      const normDocDate = this.parseCanonicalDate(rawDocVal);
+      const formDateCandidates = this.getCanonicalDateCandidates(rawFormVal);
+      const documentDateCandidates = this.getCanonicalDateCandidates(rawDocVal);
+      const normFormDate = formDateCandidates[0] || null;
+      const matchingDocumentDate = documentDateCandidates.find((candidate) => formDateCandidates.includes(candidate));
+      const normDocDate = matchingDocumentDate || documentDateCandidates[0] || null;
       result.normalizedFormValue = normFormDate;
       result.normalizedDocumentValue = normDocDate;
 
       if (!normDocDate) {
         result.status = 'NEEDS_REVIEW';
         result.reason = `Document date "${rawDocVal}" could not be parsed into a valid date.`;
-      } else if (normFormDate && normFormDate === normDocDate) {
+      } else if (normFormDate && matchingDocumentDate) {
         result.status = 'MATCH';
       } else {
         result.status = 'MISMATCH';
@@ -414,6 +458,52 @@ class CrossVerifier {
       result.reason = `Form ${reasonField} "${rawFormVal}" does not match document ${reasonField} "${rawDocVal}".`;
     }
     return result;
+  }
+
+  detectDocumentType(rawOcrText) {
+    const text = String(rawOcrText || '').toLowerCase().replace(/\\[rn]/g, ' ');
+    const compact = text.replace(/[^a-z0-9]/g, '');
+    if (!text.trim()) return { type: null, status: 'UNKNOWN' };
+
+    // A photographed Aadhaar card may lose its title during OCR, but the
+    // 12-digit identifier is still a strong document-type signal. Check it
+    // before schema-marker scoring so it cannot be mistaken for a certificate.
+    if (/\b\d{12}\b/.test(compact) || /\b\d{4}[\s-]+\d{4}[\s-]+\d{4}\b/.test(text)) {
+      return { type: 'aadhar', status: 'DETECTED' };
+    }
+
+    const schemas = schemaRegistry && typeof schemaRegistry.getAllSchemas === 'function'
+      ? schemaRegistry.getAllSchemas()
+      : [];
+    const candidates = schemas.map((schema) => {
+      const structure = schema.documentStructure || {};
+      const anyText = Array.isArray(structure.anyText) ? structure.anyText : [];
+      const anyRegex = Array.isArray(structure.anyRegex) ? structure.anyRegex : [];
+      const requiredText = Array.isArray(structure.requiredText) ? structure.requiredText : [];
+      const textMatches = anyText.filter((marker) => text.includes(String(marker).toLowerCase()));
+      const regexMatches = anyRegex.filter((pattern) => {
+        try {
+          return new RegExp(pattern, 'i').test(text) || new RegExp(pattern, 'i').test(compact);
+        } catch (error) {
+          return false;
+        }
+      });
+      const requiredMatches = requiredText.filter((marker) => text.includes(String(marker).toLowerCase()));
+      const markerCount = textMatches.length + regexMatches.length;
+      const hasRequiredStructure = requiredText.length === 0 || requiredMatches.length > 0;
+      return {
+        type: schema.documentType,
+        markerCount,
+        hasRequiredStructure,
+        score: markerCount + (hasRequiredStructure ? 1 : 0)
+      };
+    }).filter((candidate) => candidate.markerCount > 0 && candidate.hasRequiredStructure)
+      .sort((left, right) => right.score - left.score);
+
+    if (candidates.length === 0 || (candidates.length > 1 && candidates[0].score === candidates[1].score)) {
+      return { type: null, status: 'UNKNOWN' };
+    }
+    return { type: candidates[0].type, status: 'DETECTED' };
   }
 
   // Main Cross-Verification Entry Point
@@ -462,12 +552,49 @@ class CrossVerifier {
       ? this.extractFields(ocrResult.text, schema, formData)
       : {};
 
+    const detectedDocument = isOcrComplete
+      ? this.detectDocumentType(ocrResult.text)
+      : { type: null, status: 'PENDING' };
+    const expectedDocumentType = schema.documentType;
+    const requiredFieldCount = schema.fields.filter((fieldDef) => fieldDef.required !== false).length;
+    const extractedRequiredCount = schema.fields.filter((fieldDef) => {
+      const fieldId = fieldDef.id || fieldDef.logicalName || fieldDef.name || fieldDef.formField;
+      const value = extractedFields[fieldId] || extractedFields[fieldDef.logicalName] || extractedFields[fieldDef.formField];
+      return fieldDef.required !== false && value !== null && value !== undefined && String(value).trim() !== '';
+    }).length;
+    const hasStructuredFieldEvidence = !schema.documentStructure || extractedRequiredCount >= Math.min(2, requiredFieldCount || 1);
+    const documentTypeReason = detectedDocument.status === 'DETECTED' && detectedDocument.type !== expectedDocumentType
+      ? `Uploaded document appears to be ${detectedDocument.type}, but the form selected ${expectedDocumentType}. Please upload the correct document.`
+      : detectedDocument.status === 'UNKNOWN' && !hasStructuredFieldEvidence
+        ? `Could not determine the uploaded document type from its readable text. The selected document is ${schema.displayName || expectedDocumentType}. Please upload the correct ${schema.displayName || expectedDocumentType}, or review it manually.`
+        : null;
+    const documentTypeCheck = {
+      status: !isOcrComplete ? 'PENDING' : documentTypeReason ? (detectedDocument.status === 'UNKNOWN' ? 'NEEDS_REVIEW' : 'MISMATCH') : 'MATCH',
+      expected: expectedDocumentType,
+      detected: detectedDocument.type || (hasStructuredFieldEvidence ? expectedDocumentType : null),
+      reason: documentTypeReason
+    };
+
     const fieldResults = {};
     const reasons = [];
     let hasMismatch = false;
     let hasNeedsReview = false;
 
+    if (documentTypeCheck.status === 'MISMATCH') {
+      hasMismatch = true;
+      reasons.push(documentTypeCheck.reason);
+    } else if (documentTypeCheck.status === 'NEEDS_REVIEW') {
+      hasNeedsReview = true;
+      reasons.push(documentTypeCheck.reason);
+    }
+
+    // Never compare fields while OCR is pending. Partial or stale OCR text can
+    // produce convincing-looking mismatches before document type is known.
+    const canCompareFields = documentTypeCheck.status === 'MATCH' && isOcrComplete;
+
     schema.fields.forEach((fieldDef) => {
+      if (!canCompareFields) return;
+
       const fieldId = fieldDef.id || fieldDef.logicalName || fieldDef.name || fieldDef.formField;
       const formKey = fieldDef.formField || fieldDef.id || fieldDef.logicalName || fieldDef.name;
       
@@ -529,6 +656,7 @@ class CrossVerifier {
       overallStatus,
       fields: fieldResults,
       extractedFields,
+      documentTypeCheck,
       reasons,
       timestamp: Date.now()
     };
@@ -551,6 +679,10 @@ class CrossVerifier {
 
     if (!fieldDef) {
       return existingVerification || this.verify({ [fieldId]: rawFormVal }, ocrResult, schema);
+    }
+
+    if (existingVerification?.documentTypeCheck?.status === 'MISMATCH' || existingVerification?.documentTypeCheck?.status === 'NEEDS_REVIEW') {
+      return existingVerification;
     }
 
     const isOcrComplete = Boolean(ocrResult && ocrResult.status === 'succeeded');

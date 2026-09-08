@@ -111,6 +111,7 @@ function normalizeSchema(schema) {
   return {
     documentType,
     displayName,
+    documentStructure: schema.documentStructure || null,
     fields: normalizedFields,
     extract: normalizedFields.map((f) => f.id || f.logicalName),
     compare: normalizedFields.map((f) => ({
@@ -118,7 +119,7 @@ function normalizeSchema(schema) {
       strategy: f.strategy,
       threshold: f.threshold
     })),
-    fileRules: schema.fileRules || { allowedFormats: ['pdf', 'jpg', 'png'], maxSizeMB: 2 },
+    fileRules: schema.fileRules || { allowedFormats: ['pdf', 'jpg', 'png'], maxSizeMB: 1 },
     qualityRules: schema.qualityRules || { minResolutionPx: 800, maxBlurScore: 50.0 }
   };
 }

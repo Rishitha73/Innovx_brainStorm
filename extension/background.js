@@ -3,9 +3,67 @@ console.log('Pre-Submission Error Guard background service worker active');
 
 // In-memory registry of tab portal, form, and document states
 const tabStatusMap = new Map();
+let activeTabId = null;
+const ACTIVE_ICON_PATHS = {
+  16: 'icons/icon16-active.png',
+  48: 'icons/icon48-active.png',
+  128: 'icons/icon128-active.png'
+};
+const INACTIVE_ICON_PATHS = {
+  16: 'icons/icon16-inactive.png',
+  48: 'icons/icon48-inactive.png',
+  128: 'icons/icon128-inactive.png'
+};
+
+function isActiveStatus(status) {
+  return Boolean(status && status.active && status.portalId);
+}
+
+async function updateTabPresentation(tabId, status = tabStatusMap.get(tabId)) {
+  if (tabId === null || tabId === undefined) return;
+
+  const active = isActiveStatus(status);
+  try {
+    await chrome.action.setIcon({ tabId, path: active ? ACTIVE_ICON_PATHS : INACTIVE_ICON_PATHS });
+    await chrome.action.setBadgeText({ tabId, text: active ? 'ON' : '' });
+    if (active) {
+      await chrome.action.setBadgeBackgroundColor({ tabId, color: '#16805c' });
+    }
+  } catch (error) {
+    console.warn('[Background] Could not update toolbar presentation:', error);
+  }
+
+}
+
+function broadcastTabStatus(tabId, status) {
+  if (tabId === null || tabId === undefined) return;
+  chrome.runtime.sendMessage({ type: 'TAB_STATUS_UPDATED', tabId, status }).catch(() => {});
+  updateTabPresentation(tabId, status);
+}
 
 chrome.runtime.onInstalled.addListener((details) => {
   console.log('Pre-Submission Error Guard installed/updated. Reason:', details.reason);
+});
+
+chrome.action.onClicked.addListener(async (tab) => {
+  if (!tab || tab.id === undefined) return;
+  try {
+    await chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_SIDEBAR' });
+  } catch (error) {
+    console.debug('[Background] Sidebar toggle unavailable on this tab:', error.message);
+  }
+});
+
+chrome.tabs.onActivated.addListener(({ tabId }) => {
+  activeTabId = tabId;
+  updateTabPresentation(tabId);
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (changeInfo.status === 'loading' || changeInfo.url) {
+    tabStatusMap.delete(tabId);
+    updateTabPresentation(tabId, { active: false });
+  }
 });
 
 // Clean up closed tabs
@@ -143,6 +201,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         merged.form = existing.form;
       }
       tabStatusMap.set(tabId, merged);
+      broadcastTabStatus(tabId, merged);
     }
     const originUrl = message.status?.url || message.url || (sender.tab ? sender.tab.url : 'unknown');
     console.log('Background received: CONTENT_SCRIPT_LOADED', {
@@ -174,6 +233,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         merged.form = existing.form;
       }
       tabStatusMap.set(tabId, merged);
+      broadcastTabStatus(tabId, merged);
     }
     console.log('Background received: PORTAL_ACTIVATED', {
       portalId: message.status?.portalId,
@@ -193,6 +253,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     existing.timestamp = Date.now();
     tabStatusMap.set(tabId, existing);
+    broadcastTabStatus(tabId, existing);
 
     console.log('Background received: DOCUMENT_TYPE_CHANGED', {
       tabId,
@@ -219,6 +280,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     existing.timestamp = Date.now();
     tabStatusMap.set(tabId, existing);
+    broadcastTabStatus(tabId, existing);
 
     console.log('Background received: FORM_FIELD_CHANGED', {
       tabId,
@@ -247,6 +309,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     existing.timestamp = Date.now();
     tabStatusMap.set(tabId, existing);
+    broadcastTabStatus(tabId, existing);
 
     console.log('Background received: FILE_VALIDATED', {
       tabId,
@@ -263,6 +326,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message && message.type === 'PORTAL_INACTIVE') {
     if (tabId !== null) {
       tabStatusMap.set(tabId, message.status);
+      broadcastTabStatus(tabId, message.status);
     }
     console.log('Background received: PORTAL_INACTIVE', {
       tabId,
@@ -278,7 +342,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       message.type === 'GET_FORM_STATE' ||
       message.type === 'GET_DOCUMENT_STATE')
   ) {
-    const requestedTabId = message.tabId || tabId;
+    const requestedTabId = message.tabId || tabId || activeTabId;
     const status = requestedTabId ? tabStatusMap.get(requestedTabId) : null;
     if (status) {
       if (!status.form && status.formFields) {

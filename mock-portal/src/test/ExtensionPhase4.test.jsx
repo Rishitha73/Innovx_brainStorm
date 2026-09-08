@@ -30,19 +30,19 @@ describe('Phase 4: File Detection + Client-Side File Validation', () => {
   const PNG_BYTES = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52];
   const GIF_BYTES = [0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x80, 0x00, 0x00];
 
-  it('validates and accepts a valid PDF file under 2 MB', async () => {
-    const file = createSyntheticFile('income_certificate.pdf', 'application/pdf', PDF_BYTES, 1024 * 50); // 50 KB
+  it('validates and accepts a valid PDF file under 1 MB', async () => {
+    const file = createSyntheticFile('income_certificate.pdf', 'application/pdf', PDF_BYTES, 1024 * 49); // 49 KB
     const result = await validator.validate(file);
 
     expect(result.passed).toBe(true);
     expect(result.reasons.length).toBe(0);
     expect(result.file.name).toBe('income_certificate.pdf');
     expect(result.file.mimeType).toBe('application/pdf');
-    expect(result.file.sizeBytes).toBe(1024 * 50);
+    expect(result.file.sizeBytes).toBe(1024 * 49);
   });
 
-  it('validates and accepts a valid JPG image under 2 MB', async () => {
-    const file = createSyntheticFile('community_cert.jpg', 'image/jpeg', JPG_BYTES, 1024 * 200); // 200 KB
+  it('validates and accepts a valid JPG image under 1 MB', async () => {
+    const file = createSyntheticFile('community_cert.jpg', 'image/jpeg', JPG_BYTES, 1024 * 49); // 49 KB
     const result = await validator.validate(file);
 
     expect(result.passed).toBe(true);
@@ -50,8 +50,8 @@ describe('Phase 4: File Detection + Client-Side File Validation', () => {
     expect(result.file.name).toBe('community_cert.jpg');
   });
 
-  it('validates and accepts a valid PNG image under 2 MB', async () => {
-    const file = createSyntheticFile('residence_doc.png', 'image/png', PNG_BYTES, 1024 * 300); // 300 KB
+  it('validates and accepts a valid PNG image under 1 MB', async () => {
+    const file = createSyntheticFile('residence_doc.png', 'image/png', PNG_BYTES, 1024 * 49); // 49 KB
     const result = await validator.validate(file);
 
     expect(result.passed).toBe(true);
@@ -75,13 +75,13 @@ describe('Phase 4: File Detection + Client-Side File Validation', () => {
     expect(result.reasons.some((r) => r.includes('File content does not match its reported file type'))).toBe(true);
   });
 
-  it('rejects files exceeding the 2 MB maximum limit', async () => {
-    const oversizedSize = Math.floor(4.2 * 1024 * 1024); // 4.2 MB
+  it('rejects files exceeding the 1 MB maximum limit', async () => {
+    const oversizedSize = 1025 * 1024; // 1.025 MB
     const file = createSyntheticFile('huge_certificate.pdf', 'application/pdf', PDF_BYTES, oversizedSize);
     const result = await validator.validate(file);
 
     expect(result.passed).toBe(false);
-    expect(result.reasons.some((r) => r.includes('File too large. Maximum size is 2 MB. Selected file is 4.2 MB.'))).toBe(true);
+    expect(result.reasons.some((r) => r.includes('File too large. Maximum size is 1.0 MB. Selected file is 1.0 MB.'))).toBe(true);
   });
 
   it('rejects deliberately corrupted or truncated PDF files', async () => {
@@ -105,7 +105,7 @@ describe('Phase 4: File Detection + Client-Side File Validation', () => {
     });
 
     const fileInput = container.querySelector('#upload-certificate');
-    const validFile = createSyntheticFile('test_cert.pdf', 'application/pdf', PDF_BYTES, 1024 * 100);
+    const validFile = createSyntheticFile('test_cert.pdf', 'application/pdf', PDF_BYTES, 1024 * 49);
 
     fireEvent.change(fileInput, { target: { files: [validFile] } });
 
@@ -159,7 +159,7 @@ describe('Phase 4: File Detection + Client-Side File Validation', () => {
 
     // User selects file directly in DOM input
     const fileInput = container.querySelector('#upload-certificate');
-    const validFile = createSyntheticFile('verified_income.pdf', 'application/pdf', PDF_BYTES, 1024 * 80);
+    const validFile = createSyntheticFile('verified_income.pdf', 'application/pdf', PDF_BYTES, 1024 * 49);
 
     // Set files on DOM input directly
     Object.defineProperty(fileInput, 'files', {

@@ -3,7 +3,7 @@
 
 const DEFAULT_FILE_RULES = {
   allowedFormats: ['pdf', 'jpg', 'jpeg', 'png'],
-  maxSizeBytes: 2 * 1024 * 1024 // 2.0 MB
+  maxSizeBytes: 1 * 1024 * 1024 // 1 MB
 };
 
 // Known binary file signatures (magic bytes)
@@ -236,9 +236,10 @@ class FileValidator {
 
       // 2. Size Check
       if (sizeBytes > this.rules.maxSizeBytes) {
-        const actualMB = (sizeBytes / (1024 * 1024)).toFixed(1);
-        const maxMB = (this.rules.maxSizeBytes / (1024 * 1024)).toFixed(0);
-        reasons.push(`❌ File too large. Maximum size is ${maxMB} MB. Selected file is ${actualMB} MB.`);
+        const formatSize = (bytes) => bytes < 1024 * 1024
+          ? `${(bytes / 1024).toFixed(1)} KB`
+          : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+        reasons.push(`❌ File too large. Maximum size is ${formatSize(this.rules.maxSizeBytes)}. Selected file is ${formatSize(sizeBytes)}.`);
       }
 
       // 3. Signature / Magic Bytes Check

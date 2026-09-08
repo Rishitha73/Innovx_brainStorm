@@ -4,6 +4,10 @@
 const communityCertificateSchema = {
   documentType: 'communityCertificate',
   displayName: 'Community / Caste Certificate',
+  documentStructure: {
+    anyText: ['community certificate', 'caste certificate', 'community/caste'],
+    requiredText: ['certificate']
+  },
   fields: [
     {
       id: 'name',
@@ -63,7 +67,7 @@ const communityCertificateSchema = {
   ],
   fileRules: {
     allowedFormats: ['pdf', 'jpg', 'png'],
-    maxSizeMB: 2
+    maxSizeMB: 1
   },
   qualityRules: {
     minResolutionPx: 800,

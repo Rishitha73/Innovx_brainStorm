@@ -27,9 +27,113 @@ class FormDetector {
     return el;
   }
 
+  getElementText(element) {
+    if (!element) return '';
+    const doc = element.ownerDocument;
+    const label = element.id && doc
+      ? doc.querySelector(`label[for="${this.escapeSelectorValue(element.id)}"]`)
+      : null;
+    const nearbyLabel = element.closest?.('label, .form-group, .field-group, .form-field')?.querySelector?.('label');
+    return [
+      label?.textContent,
+      nearbyLabel?.textContent,
+      element.getAttribute('aria-label'),
+      element.getAttribute('placeholder'),
+      element.getAttribute('autocomplete'),
+      element.getAttribute('name'),
+      element.id,
+      element.getAttribute('title')
+    ].filter(Boolean).join(' ').toLowerCase();
+  }
+
+  escapeSelectorValue(value) {
+    return String(value).replace(/(["\\])/g, '\\$1');
+  }
+
+  getSemanticFieldName(element) {
+    if (!element) return null;
+    const text = this.getElementText(element);
+    const type = (element.getAttribute('type') || '').toLowerCase();
+    if (type === 'file') return 'documentUpload';
+    if (/\b(name|full\s*name|applicant|candidate|beneficiary|student)\b/.test(text)) return 'name';
+    if (/\b(dob|d\.o\.b|date\s*of\s*birth|birth\s*date| जन्म )\b/.test(text)) return 'dob';
+    if (/\b(certificate|cert|registration|application|acknowledg|identity|id)\b.*\b(number|no|id|code)\b|\b(number|no|id|code)\b.*\b(certificate|cert|registration|application|acknowledg|identity)\b/.test(text)) {
+      return 'certificateNumber';
+    }
+    if (element.tagName?.toLowerCase() === 'select' && /document\s*type|certificate\s*type/.test(text)) return 'documentType';
+    return null;
+  }
+
+  getElementValue(element) {
+    if (!element) return '';
+    if ((element.getAttribute('type') || '').toLowerCase() === 'file') {
+      return element.files?.[0]?.name || '';
+    }
+    return element.value !== undefined ? element.value : '';
+  }
+
+  createSelector(element) {
+    if (!element) return null;
+    if (element.id) return `#${this.escapeSelectorValue(element.id)}`;
+    if (element.name) return `[name="${this.escapeSelectorValue(element.name)}"]`;
+    return null;
+  }
+
+  discoverFieldElement(logicalName, doc, usedElements = new Set()) {
+    if (!doc) return null;
+    const controls = Array.from(doc.querySelectorAll('input, select, textarea'));
+    return controls.find((element) => {
+      if (usedElements.has(element)) return false;
+      return this.getSemanticFieldName(element) === logicalName;
+    }) || null;
+  }
+
   // Returns all configured field definitions including the document-type selector
   getFieldConfigs() {
-    const fields = Array.isArray(this.portalConfig?.fields) ? [...this.portalConfig.fields] : [];
+    const doc = (typeof document !== 'undefined') ? document : (typeof globalThis !== 'undefined' ? globalThis.document : null);
+    const configuredFields = Array.isArray(this.portalConfig?.fields) ? this.portalConfig.fields : [];
+    const fields = configuredFields.map((field) => ({ ...field }));
+    const usedElements = new Set();
+
+    fields.forEach((field) => {
+      const configuredElement = this.resolveElement(doc, field.selector);
+      if (configuredElement) {
+        usedElements.add(configuredElement);
+      }
+    });
+
+    ['name', 'dob', 'certificateNumber', 'documentType'].forEach((logicalName) => {
+      if (fields.some((field) => field.logicalName === logicalName)) return;
+      const element = this.discoverFieldElement(logicalName, doc, usedElements);
+      const selector = this.createSelector(element);
+      if (element && selector) {
+        fields.push({ logicalName, selector, type: element.type || element.tagName?.toLowerCase(), discovered: true, required: element.required });
+        usedElements.add(element);
+      }
+    });
+
+    if (!fields.some((field) => field.logicalName === 'documentUpload')) {
+      const upload = this.discoverFieldElement('documentUpload', doc, usedElements);
+      const selector = this.createSelector(upload);
+      if (upload && selector) {
+        fields.push({ logicalName: 'documentUpload', selector, type: 'file', discovered: true, required: upload.required !== false });
+        usedElements.add(upload);
+      }
+    }
+
+    if (doc) {
+      let requiredIndex = 1;
+      Array.from(doc.querySelectorAll('input[required], select[required], textarea[required]')).forEach((element) => {
+        if (usedElements.has(element)) return;
+        const semanticName = this.getSemanticFieldName(element);
+        const logicalName = semanticName || element.name || element.id || `requiredField${requiredIndex++}`;
+        const selector = this.createSelector(element);
+        if (!selector || fields.some((field) => field.logicalName === logicalName)) return;
+        fields.push({ logicalName, selector, type: element.type || element.tagName?.toLowerCase(), required: true, discovered: true });
+        usedElements.add(element);
+      });
+    }
+
     if (this.portalConfig?.documentTypeSelector && !fields.some((f) => f.logicalName === 'documentType')) {
       fields.push({
         logicalName: 'documentType',
@@ -39,7 +143,6 @@ class FormDetector {
     }
 
     // Automatically detect standard inputs (like mobile and email) if present in the live DOM
-    const doc = (typeof document !== 'undefined') ? document : (typeof globalThis !== 'undefined' ? globalThis.document : null);
     if (doc) {
       if (!fields.some((f) => f.logicalName === 'mobile')) {
         const mobileEl = doc.querySelector('#applicant-mobile, [name="mobile"], #mobile');
@@ -106,6 +209,7 @@ class FormDetector {
           logicalName,
           value: '',
           type: type || 'text',
+          required: fieldConfig.required !== false,
           lastUpdated: Date.now(),
           found: false
         };
@@ -113,11 +217,12 @@ class FormDetector {
       }
 
       // Read current value from real DOM element (React controlled or pre-populated)
-      const currentValue = element.value !== undefined ? element.value : '';
+      const currentValue = this.getElementValue(element);
       this.formState[logicalName] = {
         logicalName,
         value: currentValue,
         type: type || 'text',
+        required: fieldConfig.required !== false || Boolean(element.required),
         lastUpdated: Date.now(),
         found: true
       };
@@ -127,12 +232,12 @@ class FormDetector {
 
       // Direct event handlers for real-time tracking
       const directInputHandler = (event) => {
-        const val = event.target ? event.target.value : '';
+        const val = this.getElementValue(event.target);
         this.handleFieldUpdate(logicalName, val, 'input');
       };
 
       const directChangeHandler = (event) => {
-        const val = event.target ? event.target.value : '';
+        const val = this.getElementValue(event.target);
         this.handleFieldUpdate(logicalName, val, 'change');
       };
 
@@ -196,6 +301,7 @@ class FormDetector {
       logicalName,
       value: newValue,
       type: fieldConfig.type || (logicalName === 'documentType' ? 'select' : 'text'),
+      required: fieldConfig.required !== false,
       lastUpdated: Date.now(),
       found: true
     };
@@ -234,7 +340,7 @@ class FormDetector {
         (logicalName === 'email' && (target.id === 'applicant-email' || target.name === 'email' || target.id === 'email'));
 
       if (isMatch) {
-        const newValue = target.value !== undefined ? target.value : '';
+        const newValue = this.getElementValue(target);
         this.handleFieldUpdate(logicalName, newValue, eventType);
       }
     });
@@ -262,6 +368,7 @@ class FormDetector {
             logicalName,
             value: '',
             type: type || (logicalName === 'documentType' ? 'select' : 'text'),
+            required: fieldConfig.required !== false,
             lastUpdated: Date.now(),
             found: false
           };
@@ -271,7 +378,7 @@ class FormDetector {
         return;
       }
 
-      const currentValue = element.value !== undefined ? element.value : '';
+      const currentValue = this.getElementValue(element);
       const previousValue = this.formState[logicalName] ? this.formState[logicalName].value : undefined;
       const wasFound = this.formState[logicalName] ? this.formState[logicalName].found : false;
 
@@ -280,6 +387,7 @@ class FormDetector {
           logicalName,
           value: currentValue,
           type: type || (logicalName === 'documentType' ? 'select' : 'text'),
+          required: fieldConfig.required !== false || Boolean(element.required),
           lastUpdated: Date.now(),
           found: true
         };

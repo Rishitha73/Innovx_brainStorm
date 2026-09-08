@@ -4,6 +4,21 @@
 const incomeCertificateSchema = {
   documentType: 'incomeCertificate',
   displayName: 'Income Certificate',
+  documentStructure: {
+    anyText: [
+      'income certificate',
+      'annual income',
+      'family income',
+      'income and caste',
+      'income',
+      'revenue department',
+      'revenue officer',
+      'tehsildar',
+      'tahsildar',
+      'taluk office'
+    ],
+    requiredText: []
+  },
   fields: [
     {
       id: 'name',
@@ -85,7 +100,7 @@ const incomeCertificateSchema = {
   ],
   fileRules: {
     allowedFormats: ['pdf', 'jpg', 'png'],
-    maxSizeMB: 2
+    maxSizeMB: 1
   },
   qualityRules: {
     minResolutionPx: 800,

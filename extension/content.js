@@ -7,7 +7,15 @@ let activeFormDetector = null;
 let activeFileDetector = null;
 let activeCrossVerifier = null;
 let activeInPageUI = null;
+let activeSidebar = null;
 let activeSubmitGuard = null;
+let portalDiscoveryObserver = null;
+let portalDiscoveryTimer = null;
+let activePortalKey = null;
+let pdfJsLoadPromise = null;
+let pdfJsLoadFailed = false;
+let manualReviewListenerAttached = false;
+let manualReviewApprovedForCurrentFile = false;
 
 // Resolvers for Node.js / test environments where scripts aren't loaded in order via manifest
 let matchPortalFn = (typeof matchPortal === 'function') ? matchPortal : (typeof globalThis !== 'undefined' ? globalThis.matchPortal : null);
@@ -19,6 +27,7 @@ let QualityAnalyzerClass = (typeof QualityAnalyzer === 'function') ? QualityAnal
 let OcrEngineClass = (typeof OcrEngine === 'function') ? OcrEngine : (typeof globalThis !== 'undefined' ? globalThis.OcrEngine : null);
 let CrossVerifierClass = (typeof CrossVerifier === 'function') ? CrossVerifier : (typeof globalThis !== 'undefined' ? globalThis.CrossVerifier : null);
 let InPageUIClass = (typeof InPageUI === 'function') ? InPageUI : (typeof globalThis !== 'undefined' ? globalThis.InPageUI : null);
+let SidebarUIClass = (typeof SidebarUI === 'function') ? SidebarUI : (typeof globalThis !== 'undefined' ? globalThis.SidebarUI : null);
 let SubmitGuardClass = (typeof SubmitGuard === 'function') ? SubmitGuard : (typeof globalThis !== 'undefined' ? globalThis.SubmitGuard : null);
 let getSchemaFn = (typeof getSchema === 'function') ? getSchema : (typeof globalThis !== 'undefined' ? (globalThis.getSchema || (globalThis.SchemaRegistry && globalThis.SchemaRegistry.getSchema)) : null);
 let getAllSchemasFn = (typeof getAllSchemas === 'function') ? getAllSchemas : (typeof globalThis !== 'undefined' ? (globalThis.getAllSchemas || (globalThis.SchemaRegistry && globalThis.SchemaRegistry.getAllSchemas)) : null);
@@ -73,6 +82,12 @@ if (typeof require !== 'undefined') {
     if (!InPageUIClass) {
       const ui = require('./ui/inPageUI.js');
       InPageUIClass = ui.InPageUI || ui;
+    }
+  } catch (e) {}
+  try {
+    if (!SidebarUIClass) {
+      const su = require('./ui/sidebar.js');
+      SidebarUIClass = su.SidebarUI || su;
     }
   } catch (e) {}
   try {
@@ -196,11 +211,17 @@ function runCrossVerification() {
     ocrState,
     activeSchema || (docType ? docType : null)
   );
+  if (manualReviewApprovedForCurrentFile && verif.documentTypeCheck?.status === 'NEEDS_REVIEW') {
+    verif.documentTypeCheck.manualReviewApproved = true;
+  }
   currentPortalStatus.verification = verif;
   currentPortalStatus.inputErrors = applyInputValidation(formState, false);
   currentPortalStatus.timestamp = Date.now();
   if (activeInPageUI && typeof activeInPageUI.render === 'function') {
     activeInPageUI.render(currentPortalStatus);
+  }
+  if (activeSidebar && typeof activeSidebar.render === 'function') {
+    activeSidebar.render(currentPortalStatus);
   }
   if (activeSubmitGuard && typeof activeSubmitGuard.updateSubmitButtonState === 'function') {
     activeSubmitGuard.updateSubmitButtonState(currentPortalStatus);
@@ -300,6 +321,9 @@ function revalidateField(changedField, newValue) {
   if (activeInPageUI && typeof activeInPageUI.render === 'function') {
     activeInPageUI.render(currentPortalStatus);
   }
+  if (activeSidebar && typeof activeSidebar.render === 'function') {
+    activeSidebar.render(currentPortalStatus);
+  }
   if (activeSubmitGuard && typeof activeSubmitGuard.updateSubmitButtonState === 'function') {
     activeSubmitGuard.updateSubmitButtonState(currentPortalStatus);
   }
@@ -351,16 +375,119 @@ function resetInstrumentation() {
   }
 }
 
-function initializePortalConnection() {
+function getCurrentPageUrl() {
   const win = (typeof window !== 'undefined') ? window : (typeof globalThis !== 'undefined' ? globalThis.window : null);
-  const currentUrl = (win && win.location && win.location.href) ? win.location.href : (typeof location !== 'undefined' ? location.href : '');
+  return (win && win.location && win.location.href) ? win.location.href : (typeof location !== 'undefined' ? location.href : '');
+}
+
+function loadBundledPdfJs() {
+  if (typeof globalThis !== 'undefined' && globalThis.pdfjsLib?.getDocument) {
+    return Promise.resolve(globalThis.pdfjsLib);
+  }
+  if (pdfJsLoadFailed) return Promise.resolve(null);
+  if (pdfJsLoadPromise) return pdfJsLoadPromise;
+
+  const runtime = typeof chrome !== 'undefined' ? chrome.runtime : null;
+  if (!runtime || typeof runtime.getURL !== 'function') {
+    return Promise.resolve(null);
+  }
+
+  pdfJsLoadPromise = import(runtime.getURL('lib/pdf.min.mjs'))
+    .then((pdfjs) => {
+      if (!pdfjs || typeof pdfjs.getDocument !== 'function') {
+        throw new Error('Bundled PDF.js did not expose getDocument.');
+      }
+      if (pdfjs.GlobalWorkerOptions) {
+        pdfjs.GlobalWorkerOptions.workerSrc = runtime.getURL('lib/pdf.worker.min.mjs');
+      }
+      globalThis.pdfjsLib = pdfjs;
+      console.log('[Pre-Submission Error Guard] PDF.js loaded for document scanning.');
+      return pdfjs;
+    })
+    .catch((error) => {
+      pdfJsLoadFailed = true;
+      console.error('[Pre-Submission Error Guard] PDF.js failed to load:', error);
+      return null;
+    });
+
+  return pdfJsLoadPromise;
+}
+
+function getPortalFormElement(portalConfig) {
+  const doc = (typeof document !== 'undefined') ? document : (typeof globalThis !== 'undefined' ? globalThis.document : null);
+  if (!doc || !portalConfig) return null;
+
+  if (portalConfig.formSelector) {
+    return doc.querySelector(portalConfig.formSelector);
+  }
+
+  const configuredFields = Array.isArray(portalConfig.fields) ? portalConfig.fields : [];
+  const resolvedFields = configuredFields.filter((field) => field.selector && doc.querySelector(field.selector));
+  return resolvedFields.length >= Math.min(2, configuredFields.length) ? doc.body : null;
+}
+
+function schedulePortalDiscovery() {
+  if (portalDiscoveryTimer) return;
+  portalDiscoveryTimer = setTimeout(() => {
+    portalDiscoveryTimer = null;
+    initializePortalConnection();
+  }, 100);
+}
+
+function startPortalDiscovery() {
+  if (typeof document === 'undefined' || portalDiscoveryObserver) return;
+
+  if (typeof MutationObserver !== 'undefined' && document.documentElement) {
+    portalDiscoveryObserver = new MutationObserver(() => {
+      const matcher = (typeof matchPortal === 'function') ? matchPortal : matchPortalFn;
+      const portal = matcher ? matcher(getCurrentPageUrl()) : null;
+      const detected = Boolean(portal && getPortalFormElement(portal));
+      if (detected !== Boolean(currentPortalStatus.active)) {
+        schedulePortalDiscovery();
+      }
+    });
+    portalDiscoveryObserver.observe(document.documentElement, { childList: true, subtree: true });
+  }
+
+  const win = typeof window !== 'undefined' ? window : null;
+  if (win && win.history) {
+    ['pushState', 'replaceState'].forEach((methodName) => {
+      const original = win.history[methodName];
+      if (typeof original !== 'function' || original.__guardWrapped) return;
+      const wrapped = function (...args) {
+        const result = original.apply(this, args);
+        schedulePortalDiscovery();
+        return result;
+      };
+      wrapped.__guardWrapped = true;
+      win.history[methodName] = wrapped;
+    });
+    win.addEventListener('popstate', schedulePortalDiscovery);
+    win.addEventListener('hashchange', schedulePortalDiscovery);
+  }
+}
+
+function initializePortalConnection() {
+  const currentUrl = getCurrentPageUrl();
   const portalMatcher = (typeof matchPortal === 'function')
     ? matchPortal
     : (matchPortalFn || (typeof globalThis !== 'undefined' ? globalThis.matchPortal : null));
 
   const matchingPortal = portalMatcher ? portalMatcher(currentUrl) : null;
 
-  if (matchingPortal) {
+  if (matchingPortal && !pdfJsLoadFailed && !(typeof globalThis !== 'undefined' && globalThis.pdfjsLib?.getDocument)) {
+    loadBundledPdfJs().then(() => initializePortalConnection());
+    return;
+  }
+
+  const detectedForm = matchingPortal ? getPortalFormElement(matchingPortal) : null;
+  const portalKey = matchingPortal && detectedForm ? `${matchingPortal.portalId}:${currentUrl}:${detectedForm}` : null;
+
+  if (matchingPortal && detectedForm) {
+    if (currentPortalStatus.active && activePortalKey === portalKey) {
+      return;
+    }
+    activePortalKey = portalKey;
     console.log(`[Pre-Submission Error Guard] Active on: ${matchingPortal.portalId}`);
 
     // 1. Resolve selectors against DOM
@@ -524,6 +651,10 @@ function initializePortalConnection() {
 
       // Listen for file selections, validation, quality, and OCR events
       activeFileDetector.onFileValidated((docState) => {
+        manualReviewApprovedForCurrentFile = false;
+        if (currentPortalStatus.verification?.documentTypeCheck) {
+          currentPortalStatus.verification.documentTypeCheck.manualReviewApproved = false;
+        }
         if (activeFormDetector && typeof activeFormDetector.syncWithDom === 'function') {
           activeFormDetector.syncWithDom();
           currentPortalStatus.formFields = activeFormDetector.getFormState(false);
@@ -570,6 +701,7 @@ function initializePortalConnection() {
       const handlePortalDocTypeChange = (e) => {
         const newType = e.target ? e.target.value : null;
         console.log(`[Pre-Submission Error Guard] Document type changed on portal: ${newType}`);
+        manualReviewApprovedForCurrentFile = false;
         currentPortalStatus.documentType = newType || null;
         const verifState = runCrossVerification();
         currentPortalStatus.timestamp = Date.now();
@@ -598,6 +730,23 @@ function initializePortalConnection() {
 
     const initialVerification = runCrossVerification();
 
+    if (doc && !manualReviewListenerAttached) {
+      doc.addEventListener('guard-manual-review-approved', () => {
+        const typeCheck = currentPortalStatus.verification?.documentTypeCheck;
+        if (!typeCheck || typeCheck.status !== 'NEEDS_REVIEW') return;
+        manualReviewApprovedForCurrentFile = true;
+        currentPortalStatus.verification = {
+          ...currentPortalStatus.verification,
+          documentTypeCheck: { ...typeCheck, manualReviewApproved: true }
+        };
+        currentPortalStatus.timestamp = Date.now();
+        activeInPageUI?.render?.(currentPortalStatus);
+        activeSidebar?.render?.(currentPortalStatus);
+        activeSubmitGuard?.updateSubmitButtonState?.(currentPortalStatus);
+      });
+      manualReviewListenerAttached = true;
+    }
+
     currentPortalStatus = {
       active: true,
       portalId: matchingPortal.portalId,
@@ -616,6 +765,15 @@ function initializePortalConnection() {
 
     if (activeInPageUI && typeof activeInPageUI.render === 'function') {
       activeInPageUI.render(currentPortalStatus);
+    }
+
+    const resolvedSidebarUIClass = (typeof SidebarUI === 'function')
+      ? SidebarUI
+      : (SidebarUIClass || (typeof globalThis !== 'undefined' ? globalThis.SidebarUI : null));
+    if (resolvedSidebarUIClass) {
+      activeSidebar = new resolvedSidebarUIClass();
+      activeSidebar.initialize();
+      activeSidebar.render(currentPortalStatus);
     }
 
     // 6. Initialize Submit Guard (Phase 12)
@@ -679,6 +837,7 @@ function initializePortalConnection() {
     }
   } else {
     console.log(`[Pre-Submission Error Guard] Inactive (Unsupported page: ${currentUrl})`);
+    activePortalKey = null;
 
     if (activeFormDetector) {
       activeFormDetector.cleanup();
@@ -692,6 +851,10 @@ function initializePortalConnection() {
     if (activeInPageUI) {
       activeInPageUI.cleanup();
       activeInPageUI = null;
+    }
+    if (activeSidebar) {
+      activeSidebar.cleanup();
+      activeSidebar = null;
     }
     if (activeSubmitGuard) {
       activeSubmitGuard.detach();
@@ -756,6 +919,16 @@ function initializePortalConnection() {
 // Listen for status requests and actions from the extension popup
 if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request && request.type === 'TOGGLE_SIDEBAR') {
+      if (activeSidebar && typeof activeSidebar.toggle === 'function') {
+        activeSidebar.toggle();
+        sendResponse({ status: 'TOGGLED', open: activeSidebar.isOpen() });
+      } else {
+        sendResponse({ status: 'INACTIVE', open: false });
+      }
+      return true;
+    }
+
     if (request && request.type === 'SET_DOCUMENT_TYPE') {
       const newType = request.documentType || null;
       currentPortalStatus.documentType = newType;
@@ -832,6 +1005,7 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
 
 // Run resolution on page load
 if (typeof document !== 'undefined') {
+  startPortalDiscovery();
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initializePortalConnection);
   } else {

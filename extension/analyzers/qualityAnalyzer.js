@@ -319,7 +319,7 @@ class QualityAnalyzer {
       } else if (meanBrightness > maxBrightness) {
         brightnessOk = false;
         reasons.push(
-          `❌ Document is too bright or overexposed (Mean brightness: ${meanBrightness.toFixed(1)} / 255, max: ${maxBrightness}).`
+          `❌ Document is too bright or overexposed (Mean brightness: ${meanBrightness.toFixed(1)} / 255, upper limit: ${maxBrightness}).`
         );
       }
       console.log(`[QualityAnalyzer] brightness: ${meanBrightness.toFixed(1)} / 255 (Ok: ${brightnessOk})`);
